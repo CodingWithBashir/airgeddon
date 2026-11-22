@@ -1,3 +1,14 @@
+### Unreleased (BashirMonZ fork)
+ - Added an optional dragon-themed portal initialization/status display and service-free preview, without altering operational behavior
+ - Added cached CPU-only Hashcat detection, throughput/balanced/off profiles, and backend diagnostics with hardware-free regression coverage
+ - Expanded all configurable capture/WPS/analysis timeout ranges to 1–40000 seconds without changing defaults
+ - Added strict timeout validation, EOF cancellation and hardware-free regression tests
+ - Added a read-only assessment laboratory, CLI diagnostics and main-menu entry
+ - Added explicit offline recovery-menu handoff after successful normal handshake saves
+ - Added fork branding and a Windows coming-soon notice while retaining upstream attribution
+ - Kept distribution-maintained Hashcat in Docker and added optional inspection utilities
+ - Added pull-request syntax, regression and laboratory lint checks
+
 ### 12.10
  - Fixed tmux sessions remaining active when the session handoff fails
  - Fixed invalid interface selection when parsing airmon-ng output during mode changes and restoration

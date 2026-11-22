@@ -1,0 +1,20 @@
+name: Shell regression checks
+
+on:
+  pull_request:
+  push:
+    branches: [master, dev]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  shell-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Hardware-free syntax and regression tests
+        run: bash tests/run.sh
+      - name: Lint laboratory utilities and tests
+        run: shellcheck scripts/*.sh tests/*.sh

@@ -12,7 +12,6 @@ LABEL \
 
 #Env vars
 ENV AIRGEDDON_URL="https://github.com/v1s1t0r1sh3r3/airgeddon.git"
-ENV HASHCAT2_URL="https://github.com/v1s1t0r1sh3r3/hashcat2.0.git"
 ENV DEBIAN_FRONTEND="noninteractive"
 
 #Update system
@@ -56,6 +55,10 @@ RUN \
 	ccze \
 	systemd \
 	x11-xserver-utils \
+	wireshark-common \
+	file \
+	shellcheck \
+	lshw \
 	arping \
 	sox
 
@@ -125,11 +128,7 @@ RUN sed -i 's|AIRGEDDON_FORCE_IPTABLES=false|AIRGEDDON_FORCE_IPTABLES=true|' air
 #Make bash script files executable
 RUN chmod +x airgeddon/*.sh
 
-#Downgrade Hashcat
-RUN \
-	git clone ${HASHCAT2_URL} && \
-	cp /opt/hashcat2.0/hashcat /usr/bin/ && \
-	chmod +x /usr/bin/hashcat
+#Keep distribution-maintained Hashcat for modern offline recovery formats.
 
 #Clean packages
 RUN \
@@ -148,7 +147,6 @@ RUN \
 	rm -rf /opt/airgeddon/pindb_checksum.txt > /dev/null 2>&1 && \
 	rm -rf /opt/airgeddon/Dockerfile > /dev/null 2>&1 && \
 	rm -rf /opt/airgeddon/binaries > /dev/null 2>&1 && \
-	rm -rf /opt/hashcat2.0 > /dev/null 2>&1 && \
 	rm -rf /opt/airgeddon/plugins/* > /dev/null 2>&1 && \
 	rm -rf /tmp/* > /dev/null 2>&1 && \
 	rm -rf /var/lib/apt/lists/* > /dev/null 2>&1

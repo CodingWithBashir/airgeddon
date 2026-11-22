@@ -31,6 +31,10 @@ Please note we have a [Code of Conduct], please follow it in all your interactio
 
 ## Collaborating Developers and Plugins Development
 
+For this fork, run `bash tests/run.sh` and `shellcheck scripts/*.sh tests/*.sh`
+before submitting changes. These checks do not need root or wireless hardware.
+See [the laboratory guide](docs/LABORATORY.md) for scope and safe development.
+
 #### For direct interaction with the repository (plugins development excluded):
 
 1. First ask ALWAYS before performing a development. Ask the developement team to set what is going to be.

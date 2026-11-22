@@ -1,5 +1,31 @@
-# airgeddon
-[![Version-shield]](https://raw.githubusercontent.com/v1s1t0r1sh3r3/airgeddon/master/CHANGELOG.md) [![Bash4.2-shield]](http://tldp.org/LDP/abs/html/bashver4.html#AEN21220) [![License-shield]](https://raw.githubusercontent.com/v1s1t0r1sh3r3/airgeddon/master/LICENSE.md) [![Docker-shield]](https://github.com/v1s1t0r1sh3r3/airgeddon/actions/worklows/master.yml) [![Discord-shield]](https://discord.gg/sQ9dgt9)
+# airgeddon — BashirMonZ fork
+
+Fork developed and maintained by **BashirMonZ**. Original airgeddon by v1s1t0r
+and its contributors; upstream credits and GPL license are preserved.
+
+**Windows support — coming soon.** Native Windows is not currently supported.
+
+See the [assessment laboratory guide](docs/LABORATORY.md) for the 1–40,000-second
+timeout range, read-only tool/capture/wordlist diagnostics, and the opt-in handoff
+to the existing offline recovery menu. Longer timeouts are not a speed increase;
+a captured handshake does not guarantee recovery. Use only on authorized networks.
+
+```bash
+bash airgeddon.sh --lab help   # no sudo, GUI or wireless adapter needed
+bash airgeddon.sh --lab tools
+bash airgeddon.sh --lab dragon      # preview only; starts no services
+bash airgeddon.sh --lab performance  # CPU/backend report; no benchmark
+bash tests/run.sh             # hardware-free regression checks
+```
+
+
+Hashcat recovery now automatically uses a throughput-oriented profile when a
+bounded device probe confirms a CPU-only backend. GPU/unknown backends retain
+existing settings. For a more responsive desktop use `AIRGEDDON_CPU_PROFILE=balanced`,
+or `off` to disable tuning. See the laboratory guide for trade-offs; no fixed
+speedup is guaranteed.
+
+[![Version-shield]](https://raw.githubusercontent.com/v1s1t0r1sh3r3/airgeddon/master/CHANGELOG.md) [![Bash4.2-shield]](http://tldp.org/LDP/abs/html/bashver4.html#AEN21220) [![License-shield]](https://raw.githubusercontent.com/v1s1t0r1sh3r3/airgeddon/master/LICENSE) [![Docker-shield]](https://github.com/v1s1t0r1sh3r3/airgeddon/actions/workflows/master.yml) [![Discord-shield]](https://discord.gg/sQ9dgt9)
 
 [![Paypal-shield]](https://www.paypal.com/paypalme/airgeddon) [![Cryptocurrencies-shield]](https://github.com/v1s1t0r1sh3r3/airgeddon/wiki/Contributing-&-Code-of-Conduct)
 

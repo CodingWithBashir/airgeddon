@@ -263,6 +263,7 @@ urlgithub_wiki="https://${repository_hostname}/${github_user}/${github_repositor
 urlmerchandising_shop="https://airgeddon.creator-spring.com/"
 mail="v1s1t0r.1s.h3r3@gmail.com"
 author="v1s1t0r"
+fork_maintainer="BashirMonZ"
 wpa3_online_attack_plugin_repo="https://${repository_hostname}/OscarAkaElvis/airgeddon-plugins"
 wpa3_dragon_drain_plugin_repo="https://${repository_hostname}/Janek79ax/dragon-drain-wpa3-airgeddon-plugin"
 wpa3_cookie_guzzler_plugin_repo="https://${repository_hostname}/OscarAkaElvis/airgeddon-plugins"
@@ -4111,35 +4112,35 @@ function read_timeout() {
 	echo
 	case ${1} in
 		"wps_standard")
-			min_max_timeout="10-100"
+			min_max_timeout="1-40000"
 			timeout_shown="${timeout_secs_per_pin}"
 		;;
 		"wps_pixiedust")
-			min_max_timeout="25-2400"
+			min_max_timeout="1-40000"
 			timeout_shown="${timeout_secs_per_pixiedust}"
 		;;
 		"capture_handshake_decloak")
-			min_max_timeout="10-100"
+			min_max_timeout="1-40000"
 			timeout_shown="${timeout_capture_handshake_decloak}"
 		;;
 		"capture_pmkid")
-			min_max_timeout="10-100"
+			min_max_timeout="1-40000"
 			timeout_shown="${timeout_capture_pmkid}"
 		;;
 		"capture_identities")
-			min_max_timeout="10-100"
+			min_max_timeout="1-40000"
 			timeout_shown="${timeout_capture_identities}"
 		;;
 		"certificates_analysis")
-			min_max_timeout="10-100"
+			min_max_timeout="1-40000"
 			timeout_shown="${timeout_certificates_analysis}"
 		;;
 		"wpa3_downgrade")
-			min_max_timeout="10-100"
+			min_max_timeout="1-40000"
 			timeout_shown="${timeout_wpa3_downgrade}"
 		;;
 		"wpa3_mfp_analysis")
-			min_max_timeout="10-100"
+			min_max_timeout="1-40000"
 			timeout_shown="${timeout_wpa3_mfp_analysis}"
 		;;
 	esac
@@ -4148,41 +4149,27 @@ function read_timeout() {
 	read -rp "> " timeout
 }
 
+#Empty input retains the existing default. Reject signs, leading zeros and shell syntax.
+function valid_timeout_seconds() {
+
+	[[ -z "${1}" ]] || { [[ "${1}" =~ ^[1-9][0-9]{0,4}$ ]] && ((10#${1} <= 40000)); }
+}
+
 #Validate the user input for timeouts
 function ask_timeout() {
 
 	debug_print
 
 	case ${1} in
-		"wps_standard")
-			local regexp="^[1-9][0-9]$|^100$|^$"
-		;;
-		"wps_pixiedust")
-			local regexp="^2[5-9]$|^[3-9][0-9]$|^[1-9][0-9]{2}$|^1[0-9]{3}$|^2[0-3][0-9]{2}$|^2400$|^$"
-		;;
-		"capture_handshake_decloak")
-			local regexp="^[1-9][0-9]$|^100$|^$"
-		;;
-		"capture_pmkid")
-			local regexp="^[1-9][0-9]$|^100$|^$"
-		;;
-		"capture_identities")
-			local regexp="^[1-9][0-9]$|^100$|^$"
-		;;
-		"certificates_analysis")
-			local regexp="^[1-9][0-9]$|^100$|^$"
-		;;
-		"wpa3_downgrade")
-			local regexp="^[1-9][0-9]$|^100$|^$"
-		;;
-		"wpa3_mfp_analysis")
-			local regexp="^[1-9][0-9]$|^100$|^$"
-		;;
+		wps_standard|wps_pixiedust|capture_handshake_decloak|capture_pmkid|capture_identities|certificates_analysis|wpa3_downgrade|wpa3_mfp_analysis) ;;
+		*) return 1 ;;
 	esac
 
 	timeout=0
-	while [[ ! ${timeout} =~ ${regexp} ]]; do
-		read_timeout "${1}"
+	until valid_timeout_seconds "${timeout}"; do
+		if ! read_timeout "${1}"; then
+			return 1
+		fi
 	done
 
 	if [ "${timeout}" = "" ]; then
@@ -4856,7 +4843,7 @@ function analyze_wpa3_mfp_status() {
 		return 1
 	fi
 
-	ask_timeout "wpa3_mfp_analysis"
+	ask_timeout "wpa3_mfp_analysis" || return 1
 	echo
 	language_strings "${language}" 844 "yellow"
 	language_strings "${language}" 115 "read"
@@ -6767,16 +6754,16 @@ function wps_attacks_parameters() {
 		case ${wps_attack} in
 			"custompin_bully"|"custompin_reaver")
 				ask_custom_pin
-				ask_timeout "wps_standard"
+				ask_timeout "wps_standard" || return 1
 			;;
 			"pixiedust_bully"|"pixiedust_reaver")
-				ask_timeout "wps_pixiedust"
+				ask_timeout "wps_pixiedust" || return 1
 			;;
 			"pindb_bully"|"pindb_reaver")
-				ask_timeout "wps_standard"
+				ask_timeout "wps_standard" || return 1
 			;;
 			"nullpin_reaver")
-				ask_timeout "wps_standard"
+				ask_timeout "wps_standard" || return 1
 			;;
 		esac
 	fi
@@ -8257,6 +8244,7 @@ function main_menu() {
 	print_simple_separator
 	language_strings "${language}" 60
 	language_strings "${language}" 444
+	printf '%s\n' "14. Assessment laboratory / tool diagnostics"
 	print_hint
 
 	read -rp "> " main_option
@@ -8303,12 +8291,66 @@ function main_menu() {
 		13)
 			option_menu
 		;;
+		14)
+			laboratory_menu
+		;;
 		*)
 			invalid_menu_option
 		;;
 	esac
 
 	main_menu
+}
+
+#Read-only lab utilities and explicit handoff to the existing recovery menus.
+function laboratory_menu() {
+
+	local lab_choice
+	local lab_path
+	while true; do
+		printf '\n%s\n' "Assessment laboratory — maintained by ${fork_maintainer}" \
+			"Use only captures and networks you own or are authorized to assess." \
+			"1. Tool readiness report (no installation)" \
+			"2. Capture metadata (read-only)" \
+			"3. Wordlist statistics (does not display candidates)" \
+			"4. Open existing offline password-recovery menu" \
+			"5. CPU/backend profile report (bounded device probe)" \
+			"6. Dragon status display preview (no services started)" \
+			"0. Back" "Windows support — coming soon"
+		IFS= read -rp '> ' lab_choice || return
+		case "${lab_choice}" in
+			0) return ;;
+			1) bash "${scriptfolder}scripts/lab.sh" tools ;;
+			2|3)
+				IFS= read -rp 'File path: ' lab_path || return
+				if [ "${lab_choice}" = 2 ]; then
+					bash "${scriptfolder}scripts/lab.sh" capture "${lab_path}"
+				else
+					bash "${scriptfolder}scripts/lab.sh" wordlist "${lab_path}"
+				fi
+			;;
+			4)
+				printf '%s\n' "A handshake does not guarantee password recovery. Choose your own authorized input and dictionary."
+				personal_decrypt_menu
+			;;
+			5) bash "${scriptfolder}scripts/lab.sh" performance ;;
+			6) bash "${scriptfolder}scripts/lab.sh" dragon ;;
+			*) printf '%s\n' "Invalid selection." ;;
+		esac
+	done
+}
+
+#Offer a recovery handoff only after a verified capture was successfully saved.
+function offer_saved_capture_recovery() {
+
+	local recovery_choice
+	printf '\n%s\n' "Capture saved. Offline recovery requires a suitable dictionary and may not succeed." \
+		"Open the existing recovery menu for this authorized capture? [y/N]"
+	IFS= read -r recovery_choice || return 0
+	case "${recovery_choice}" in
+		y|Y|yes|YES) personal_decrypt_menu ;;
+	esac
+	return 0
 }
 
 #Enterprise attacks menu
@@ -11946,39 +11988,71 @@ function exec_et_sniffing_sslstrip2_beef_attack() {
 	clean_tmpfiles
 }
 
+#Optional cosmetic UI. Missing theme files never prevent the existing workflow.
+function portal_dragon_status() {
+
+	case ${AIRGEDDON_DRAGON_UI:-on} in off|false|0) return 0 ;; esac
+	if ! declare -F dragon_status_banner > /dev/null; then
+		local dragon_module="${scriptfolder}scripts/dragon_status.sh"
+		if [ -r "${dragon_module}" ]; then
+			#shellcheck source=scripts/dragon_status.sh
+			source "${dragon_module}"
+		fi
+	fi
+	if declare -F dragon_status_banner > /dev/null; then
+		if [ "${1}" = banner ]; then
+			dragon_status_banner
+		else
+			dragon_status_line "${1}" "${2}"
+		fi
+	fi
+	return 0
+}
+
 #Execute captive portal Evil Twin attack
 function exec_et_captive_portal_attack() {
 
 	debug_print
 
+	portal_dragon_status banner
+	portal_dragon_status STAGE "Preparing portal workspace"
+
 	rm -rf "${tmpdir}${webdir}" > /dev/null 2>&1
 	mkdir "${tmpdir}${webdir}" > /dev/null 2>&1
 
+	portal_dragon_status STAGE "Preparing access-point configuration and requesting startup"
 	set_hostapd_config
 	launch_fake_ap
+	portal_dragon_status STAGE "Preparing interface addressing, DHCP and routing"
 	set_network_interface_data
 	set_dhcp_config
 	set_std_internet_routing_rules
 	launch_dhcp_server
+	portal_dragon_status STAGE "Starting the existing control workflow"
 	exec_et_deauth
 	set_et_control_script
 	launch_et_control_window
+	portal_dragon_status STAGE "Requesting DNS service startup"
 	launch_dns_blackhole
+	portal_dragon_status STAGE "Preparing portal pages and requesting web-server startup"
 	set_webserver_config
 	set_captive_portal_page
 	launch_webserver
 	write_et_processes
+	portal_dragon_status INFO "Startup commands issued. Check the control window and service logs for readiness or errors."
 
 	echo
 	language_strings "${language}" 298 "yellow"
 	language_strings "${language}" 115 "read"
 
+	portal_dragon_status STOP "Stopping portal windows through the existing cleanup flow"
 	kill_et_windows
 
 	if [ "${dos_pursuit_mode}" -eq 1 ]; then
 		recover_current_channel
 	fi
 
+	portal_dragon_status STAGE "Requesting interface restoration and temporary-file cleanup"
 	restore_et_interface
 	clean_tmpfiles
 }
@@ -15145,7 +15219,7 @@ function capture_handshake_evil_twin() {
 		return 1
 	fi
 
-	ask_timeout "capture_handshake_decloak"
+	ask_timeout "capture_handshake_decloak" || return 1
 	capture_handshake_window
 
 	case ${et_dos_attack} in
@@ -15837,9 +15911,9 @@ function dos_info_gathering_enterprise_menu() {
 				forbidden_menu_option
 			else
 				if [ "${1}" = "identities" ]; then
-					ask_timeout "capture_identities"
+					ask_timeout "capture_identities" || return 1
 				else
-					ask_timeout "certificates_analysis"
+					ask_timeout "certificates_analysis" || return 1
 				fi
 				identities_certificates_capture_window "${1}"
 
@@ -15865,9 +15939,9 @@ function dos_info_gathering_enterprise_menu() {
 				forbidden_menu_option
 			else
 				if [ "${1}" = "identities" ]; then
-					ask_timeout "capture_identities"
+					ask_timeout "capture_identities" || return 1
 				else
-					ask_timeout "certificates_analysis"
+					ask_timeout "certificates_analysis" || return 1
 				fi
 				identities_certificates_capture_window "${1}"
 
@@ -15892,9 +15966,9 @@ function dos_info_gathering_enterprise_menu() {
 				forbidden_menu_option
 			else
 				if [ "${1}" = "identities" ]; then
-					ask_timeout "capture_identities"
+					ask_timeout "capture_identities" || return 1
 				else
-					ask_timeout "certificates_analysis"
+					ask_timeout "certificates_analysis" || return 1
 				fi
 				identities_certificates_capture_window "${1}"
 
@@ -15959,7 +16033,7 @@ function dos_handshake_decloaking_menu() {
 			if contains_element "${attack_handshake_decloak_option}" "${forbidden_options[@]}"; then
 				forbidden_menu_option
 			else
-				ask_timeout "capture_handshake_decloak"
+				ask_timeout "capture_handshake_decloak" || return 1
 				if [ "${1}" = "decloak" ]; then
 					decloak_window
 				else
@@ -15987,7 +16061,7 @@ function dos_handshake_decloaking_menu() {
 			if contains_element "${attack_handshake_decloak_option}" "${forbidden_options[@]}"; then
 				forbidden_menu_option
 			else
-				ask_timeout "capture_handshake_decloak"
+				ask_timeout "capture_handshake_decloak" || return 1
 				if [ "${1}" = "decloak" ]; then
 					decloak_window
 				else
@@ -16013,7 +16087,7 @@ function dos_handshake_decloaking_menu() {
 			if contains_element "${attack_handshake_decloak_option}" "${forbidden_options[@]}"; then
 				forbidden_menu_option
 			else
-				ask_timeout "capture_handshake_decloak"
+				ask_timeout "capture_handshake_decloak" || return 1
 				if [ "${1}" = "decloak" ]; then
 					decloak_window
 				else
@@ -16178,11 +16252,15 @@ function launch_handshake_capture() {
 				read_path "handshake"
 			done
 
-			cp "${tmpdir}${standardhandshake_filename}" "${enteredpath}"
+			if ! cp -- "${tmpdir}${standardhandshake_filename}" "${enteredpath}"; then
+				printf '%s\n' "Could not save capture. Recovery was not started." >&2
+				return 1
+			fi
 			echo
 			language_strings "${language}" 149 "blue"
 			language_strings "${language}" 115 "read"
 			return_to_handshake_pmkid_decloaking_tools_menu=1
+			offer_saved_capture_recovery
 		;;
 		"1")
 			echo
@@ -16290,7 +16368,7 @@ function launch_pmkid_capture() {
 
 	debug_print
 
-	ask_timeout "capture_pmkid"
+	ask_timeout "capture_pmkid" || return 1
 
 	echo
 	language_strings "${language}" 671 "yellow"
@@ -17113,7 +17191,7 @@ function wpa3_downgrade_prerequisites() {
 		fi
 	fi
 
-	ask_timeout "wpa3_downgrade"
+	ask_timeout "wpa3_downgrade" || return 1
 
 	echo
 	language_strings "${language}" 782 "blue"
@@ -17688,6 +17766,7 @@ function credits_option() {
 	language_strings "${language}" 74 "pink"
 	echo
 	language_strings "${language}" 73 "blue"
+	printf '%s\n' "Fork developed and maintained by ${fork_maintainer} | Windows support — coming soon"
 	echo
 	echo -e "${green_color}                                                            .-\"\"\"\"-."
 	sleep 0.15 && echo -e "                                                           /        \ "
@@ -18193,6 +18272,18 @@ function set_hashcat_parameters() {
 
 		if compare_floats_greater_or_equal "${hashcat_version}" "${hashcat_2500_deprecated_version}"; then
 			hashcat_handshake_cracking_plugin="22000"
+		fi
+
+		#Probe once per backend/version, and only when an offline Hashcat workflow is selected.
+		if ! declare -F airgeddon_configure_cpu_profile > /dev/null; then
+			local cpu_profile_module="${scriptfolder}scripts/lab_cpu.sh"
+			if [ -r "${cpu_profile_module}" ]; then
+				#shellcheck source=scripts/lab_cpu.sh
+				source "${cpu_profile_module}"
+			fi
+		fi
+		if declare -F airgeddon_configure_cpu_profile > /dev/null; then
+			airgeddon_configure_cpu_profile
 		fi
 	fi
 }
@@ -19432,6 +19523,7 @@ function print_intro() {
 	sleep 0.15 && echo -e "                \/         /_____/      \/     \/    \/           \/${normal_color}"
 	echo
 	language_strings "${language}" 228 "green"
+	printf '%s\n' "Fork developed and maintained by ${fork_maintainer} | Windows support — coming soon"
 	print_animated_flying_saucer
 	sleep 1
 }
@@ -21431,10 +21523,15 @@ function main() {
 	main_menu
 }
 
-#Script starts to execute stuff from this point, traps and then the main function
-for f in SIGINT SIGHUP INT SIGTSTP; do
-	trap_cmd="trap \"capture_traps ${f}\" \"${f}\""
-	eval "${trap_cmd}"
-done
-
-main "$@"
+#Sourcing exposes functions for hardware-free regression tests, without launching main.
+if [[ "${BASH_SOURCE[0]}" = "${0}" ]]; then
+	#The read-only laboratory does not require root, X11 or a wireless adapter.
+	if [[ "${1:-}" = "--lab" ]]; then
+		shift
+		exec bash "$(dirname -- "${BASH_SOURCE[0]}")/scripts/lab.sh" "$@"
+	fi
+	for f in SIGINT SIGHUP INT SIGTSTP; do
+		trap "capture_traps ${f}" "${f}"
+	done
+	main "$@"
+fi
