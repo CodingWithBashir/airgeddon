@@ -71,6 +71,28 @@ the recovery-menu prompt, or choose main menu **6** / laboratory **4** later. Se
 the authorized capture and a dictionary in the existing menu. Already-selected
 capture paths can be reused using the existing confirmation prompt.
 
+Before a personal offline recovery job starts, an optional **password format**
+prompt accepts a position-by-position example in braces, such as `{OC43DE32}`.
+Uppercase letters stand for A–Z, lowercase letters for a–z, and digits for 0–9;
+the example maps to `?u?u?d?d?u?u?d?d`. Braces are delimiters, not part of the
+password. This version accepts **8–63 ASCII alphanumeric positions** (no symbols,
+literal/fixed characters, raw Hashcat mask syntax or 64-digit raw PSKs).
+This is a character-type template, **not** the exact password to try.
+
+- **Press Enter to skip** and keep the selected dictionary/rules/bruteforce flow.
+- A supplied format replaces that job's dictionary/rules/length/charset settings
+  with a fixed-length search. The program shows the derived pattern and search
+  space and requires explicit confirmation before starting it. Declining or EOF
+  cancels the job; it never falls back to an unrestricted search.
+- Hashcat uses a fixed mask (no `--increment`); Aircrack streams candidates from
+  Crunch, which must be installed for this optional path. No giant dictionary
+  file is generated. Enterprise and automatic credential-verification paths are
+  unchanged. Formats are not reused or saved for the next job.
+- A format narrows candidate structure, not necessarily to a practical number.
+  `{OC43DE32}` still represents **4,569,760,000 candidates**. If your assumption
+  is wrong, the password will not be among them. There is no speed or success
+  guarantee. Only use captures/hashes you own or are authorized to assess.
+
 A handshake is not the Wi-Fi password. Offline recovery only succeeds if the
 selected method can find the actual password; strong random passwords may remain
 infeasible to recover. No 10× improvement or guaranteed recovery is claimed.

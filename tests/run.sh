@@ -12,6 +12,7 @@ bash tests/test_assessment.sh
 bash tests/test_emergency_cleanup.sh
 bash tests/test_firewall_cleanup.sh
 bash tests/test_extension.sh
+bash tests/test_recovery_format.sh
 python3 tests/test_research.py
 python3 tests/test_research_integration.py
 printf '%s\n' 'All hardware-free regression checks passed.'

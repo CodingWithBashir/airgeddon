@@ -10298,6 +10298,20 @@ function enterprise_asleap_dictionary_attack_option() {
 	manage_asleap_pot "offline_menu"
 }
 
+#Ask once per selected offline personal recovery job, after evidence validation.
+#A nonzero return means handled/cancelled; do not start the original attack too.
+function offer_optional_recovery_format() {
+
+	local format_module="${scriptfolder}scripts/recovery_format.sh"
+	if [[ ! -r "${format_module}" ]]; then
+		printf '%s\n' 'Recovery format module is unavailable; no recovery was started.' >&2
+		return 1
+	fi
+	#shellcheck source=scripts/recovery_format.sh
+	source "${format_module}"
+	airgeddon_optional_recovery_format "$@"
+}
+
 #Validate and ask for the different parameters used in an aircrack dictionary based attack
 function aircrack_dictionary_attack_option() {
 
@@ -10308,6 +10322,8 @@ function aircrack_dictionary_attack_option() {
 	if ! select_wpa_bssid_target_from_captured_file "${enteredpath}"; then
 		return
 	fi
+
+	offer_optional_recovery_format "${1}" aircrack || return
 
 	manage_asking_for_dictionary_file
 
@@ -10328,6 +10344,8 @@ function aircrack_bruteforce_attack_option() {
 	if ! select_wpa_bssid_target_from_captured_file "${enteredpath}"; then
 		return
 	fi
+
+	offer_optional_recovery_format "${1}" aircrack || return
 
 	set_minlength_and_maxlength "${1}"
 
@@ -10430,6 +10448,8 @@ function hashcat_dictionary_attack_option() {
 		fi
 	fi
 
+	offer_optional_recovery_format "${1}" hashcat || return
+
 	manage_asking_for_dictionary_file
 
 	echo
@@ -10476,6 +10496,8 @@ function hashcat_bruteforce_attack_option() {
 			return
 		fi
 	fi
+
+	offer_optional_recovery_format "${1}" hashcat || return
 
 	set_minlength_and_maxlength "${1}"
 
@@ -10530,6 +10552,8 @@ function hashcat_rulebased_attack_option() {
 			return
 		fi
 	fi
+
+	offer_optional_recovery_format "${1}" hashcat || return
 
 	manage_asking_for_dictionary_file
 	manage_asking_for_rule_file
