@@ -33,6 +33,7 @@ lab_usage() {
 		'  report [FILE]  Allowlisted diagnostic summary; refuses to overwrite a file.' \
 		'  advanced       Open the real Advanced Extension menus (no root required).' \
 		'  laboratory     Open the styled local laboratory menus.' \
+		'  research-tools Evidence records, wordlist/password audits and baseline-aware reports.' \
 		'  wpa-analysis FILE | sae-analysis FILE | wps-assessment FILE  Hostapd checks.' \
 		'  enterprise-eap FILE | auth-diagnostics FILE | frame-analysis FILE  Capture analysis.' \
 		'  pmf-analysis FILE | wifi-generation FILE | eapol-analysis FILE  Capture analysis.' \
@@ -94,9 +95,13 @@ lab_main() {
 				lab_wordlist_statistics "$2"
 			fi
 		;;
-		advanced|laboratory)
+		advanced|laboratory|research-tools)
 			[[ $# -eq 1 ]] || { lab_usage >&2; return 2; }
-			if [[ $1 = advanced ]]; then advanced_extension_menu; else extension_laboratory_menu; fi
+			case $1 in
+				advanced) advanced_extension_menu ;;
+				laboratory) extension_laboratory_menu ;;
+				research-tools) extension_tools_menu ;;
+			esac
 		;;
 		wpa-analysis|sae-analysis|wps-assessment|enterprise-eap|auth-diagnostics|frame-analysis|pmf-analysis|wifi-generation|eapol-analysis|rogue-ap|evil-twin|client-threat|handshake-validate|pmkid-forensics|pmkid-analyze|wordlist-analyze|password-audit|evidence|evidence-verify|audit-report|wpa2-audit|wpa3-audit)
 			extension_run "$@"

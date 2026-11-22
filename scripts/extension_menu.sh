@@ -56,6 +56,22 @@ extension_notice() {
 	fi
 }
 
+extension_invalid_selection() {
+	if declare -F language_strings > /dev/null; then
+		if ! extension_color_enabled; then local normal_color='' red_color=''; fi
+		language_strings "${language:-ENGLISH}" 76 red
+	else
+		extension_notice 'Invalid selection.'
+	fi
+}
+
+extension_report_action() {
+	local input output
+	IFS= read -rp 'Audit manifest JSON (file paths or file/baseline objects): ' input || return
+	IFS= read -rp 'NEW Markdown report path: ' output || return
+	extension_run audit-report "$input" "$output"
+}
+
 extension_header() {
 	if ! extension_color_enabled; then
 		local normal_color='' green_color='' white_color=''
@@ -145,7 +161,7 @@ extension_evidence_menu() {
 					;;
 				esac
 				;;
-			*) extension_notice 'Invalid selection.' ;;
+			*) extension_invalid_selection ;;
 		esac
 		extension_pause || return
 	done
@@ -193,7 +209,8 @@ extension_category_menu() {
 				extension_pause || return
 			fi
 		else
-			extension_notice 'Invalid selection.'
+			extension_invalid_selection
+			extension_pause || return
 		fi
 	done
 }
@@ -208,14 +225,39 @@ advanced_extension_menu() {
 		extension_option 3 'WIRELESS PROTOCOL RESEARCH'
 		extension_option 4 'WIRELESS THREAT RESEARCH'
 		extension_option 5 'CAPTURE FORENSICS'
+		extension_title 'Evidence and reports' separator
+		extension_option 6 'Evidence, audits and report tools'
 		printf '\n'
 		extension_notice 'Actions process real inputs. No simulated success or automatic attack.'
 		IFS= read -rp '> ' selection || return
 		case $selection in
 			0) return 0 ;;
 			1|2|3|4|5) extension_category_menu "$selection" ;;
-			*) extension_notice 'Invalid selection.' ;;
+			6) extension_tools_menu ;;
+			*) extension_invalid_selection; extension_pause || return ;;
 		esac
+	done
+}
+
+extension_tools_menu() {
+	local current_menu=research_tools_menu
+	local selection
+	while true; do
+		extension_header 'Evidence, audits and reports'
+		extension_option 1 'Evidence Management'
+		extension_option 2 'Audit Report Generator (supports approved-AP baselines)'
+		extension_option 3 'Wordlist Analyzer'
+		extension_option 4 'Password Strength Auditor (hidden prompt)'
+		IFS= read -rp '> ' selection || return
+		case $selection in
+			0) return 0 ;;
+			1) extension_evidence_menu; continue ;;
+			2) extension_report_action ;;
+			3) extension_file_action wordlist-analyze ;;
+			4) extension_run password-audit --text ;;
+			*) extension_invalid_selection ;;
+		esac
+		extension_pause || return
 	done
 }
 
@@ -253,11 +295,7 @@ extension_laboratory_menu() {
 			13) advanced_extension_menu; continue ;;
 			14) extension_file_action wordlist-analyze ;;
 			15) extension_run password-audit --text ;;
-			16)
-				IFS= read -rp 'Audit manifest JSON: ' input || return
-				IFS= read -rp 'NEW Markdown report path: ' second || return
-				extension_run audit-report "$input" "$second"
-				;;
+			16) extension_report_action ;;
 			1|2|3|5|6|7|8|9|10|11|12)
 				local -a actions=('' tools capture wordlist '' performance dragon health hardware quality train report preflight)
 				local action=${actions[$selection]}
@@ -272,7 +310,7 @@ extension_laboratory_menu() {
 				fi
 				bash "${BASH_SOURCE[0]%/*}/lab.sh" "${arguments[@]}"
 				;;
-			*) extension_notice 'Invalid selection.' ;;
+			*) extension_invalid_selection ;;
 		esac
 		extension_pause || return
 	done

@@ -123,6 +123,34 @@ def numbers(cell):
     return output
 
 
+def capture_failure(diagnostics):
+    """Classify bounded C-locale diagnostics without ever displaying raw text."""
+    text = diagnostics.decode("utf-8", "replace").casefold()
+    if "some fields aren't valid" in text or "invalid field" in text:
+        return ResearchError(
+            "Installed tshark does not support required dissector fields; upgrade tshark. No result was inferred."
+        )
+    if (
+        "not a capture file" in text
+        or "isn't a capture file" in text
+        or "is not a capture" in text
+    ):
+        return ResearchError(
+            "Input was not recognized as a supported capture file; provide PCAP/PCAPNG evidence."
+        )
+    if "cut short" in text or "truncated" in text:
+        return ResearchError(
+            "Capture is truncated or incomplete; no successful analysis was inferred."
+        )
+    if "permission denied" in text or "operation not permitted" in text:
+        return ResearchError(
+            "tshark could not read the evidence descriptor; check local permissions and sandbox restrictions."
+        )
+    return ResearchError(
+        "tshark failed to inspect the capture; verify the capture and local tshark installation. No result was inferred."
+    )
+
+
 def query_capture(path, display_filter, fields):
     executable = shutil.which("tshark")
     if not executable:
@@ -149,39 +177,52 @@ def query_capture(path, display_filter, fields):
         ]
         for field in fields:
             command += ["-e", field]
-        output = bytearray()
+        output, diagnostics = bytearray(), bytearray()
         try:
             with subprocess.Popen(
                 command,
                 stdout=subprocess.PIPE,
                 stdin=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
                 pass_fds=(stream.fileno(),),
                 env={**os.environ, "LC_ALL": "C"},
             ) as process:
                 try:
                     deadline = time.monotonic() + 15
                     with selectors.DefaultSelector() as selector:
-                        selector.register(process.stdout, selectors.EVENT_READ)
-                        while True:
+                        selector.register(
+                            process.stdout, selectors.EVENT_READ, "output"
+                        )
+                        selector.register(
+                            process.stderr, selectors.EVENT_READ, "diagnostics"
+                        )
+                        while selector.get_map():
                             remaining = deadline - time.monotonic()
-                            if remaining <= 0 or not selector.select(remaining):
+                            events = selector.select(max(0, remaining))
+                            if remaining <= 0 or not events:
                                 raise ResearchError(
                                     "Capture inspection exceeded its 15-second budget."
                                 )
-                            chunk = os.read(process.stdout.fileno(), 65536)
-                            if not chunk:
-                                break
-                            output.extend(chunk)
-                            if len(output) > 4 * 1024 * 1024:
-                                raise ResearchError(
-                                    "Capture inspection exceeded its 4 MiB output budget."
-                                )
+                            for key, _ in events:
+                                chunk = os.read(key.fileobj.fileno(), 65536)
+                                if not chunk:
+                                    selector.unregister(key.fileobj)
+                                    continue
+                                if key.data == "output":
+                                    output.extend(chunk)
+                                    if len(output) > 4 * 1024 * 1024:
+                                        raise ResearchError(
+                                            "Capture inspection exceeded its 4 MiB output budget."
+                                        )
+                                else:
+                                    diagnostics.extend(chunk)
+                                    if len(diagnostics) > 65536:
+                                        raise ResearchError(
+                                            "Capture inspection exceeded its 64 KiB diagnostic budget."
+                                        )
                     process.wait(timeout=max(0.001, deadline - time.monotonic()))
                     if process.returncode:
-                        raise ResearchError(
-                            "Capture could not be inspected or required dissector fields are unsupported."
-                        )
+                        raise capture_failure(diagnostics)
                 finally:
                     if process.poll() is None:
                         process.kill()
@@ -202,7 +243,7 @@ def handshake_rows(rows, mode):
     stages = {}
     complete = set()
     counts = Counter()
-    malformed = 0
+    malformed = repeated = 0
     for frame, timestamp, source, destination, message, counter in rows:
         try:
             frame, time, message, counter = (
@@ -234,8 +275,10 @@ def handshake_rows(rows, mode):
         key = (ap, client, counter if message in {1, 2} else counter - 1)
         state = stages.setdefault(key, {})
         previous = state.get(message - 1)
+        repeated += message in state
         if message == 1:
-            state.clear()
+            # A repeated M1 must not erase an already matched M2/M3 prefix.
+            # Each stored later stage still represents a previously valid chain.
             state[1] = (frame, time)
         elif previous and frame > previous[0] and 0 <= time - previous[1] <= 10:
             state[message] = (frame, time)
@@ -248,6 +291,7 @@ def handshake_rows(rows, mode):
         "message_4": counts[4],
         "structural_candidates": len(complete),
         "unusable_rows": malformed,
+        "repeated_stage_rows": repeated,
     }
     return result(
         mode,
@@ -260,7 +304,7 @@ def handshake_rows(rows, mode):
         "candidate" if complete else "inconclusive",
         [
             LIMIT,
-            "MICs, nonces, credentials, cryptographic authenticity and recoverability were not verified. Strict checks may miss valid partial/retransmitted exchanges.",
+            "MICs, nonces, credentials, cryptographic authenticity and recoverability were not verified. Repeated same-peer/stage/replay rows are tolerated, but strict replay/timing checks may still miss valid exchanges or partial captures.",
         ],
     )
 
@@ -962,20 +1006,34 @@ def text_result(data):
     return "\n".join(output)
 
 
-def audit_report(manifest_path):
-    manifest = json_input(manifest_path, 65536)
-    if (
-        not isinstance(manifest, dict)
-        or not manifest
-        or set(manifest) - TITLES.keys()
-        or not all(
-            isinstance(value, str) and value and "\0" not in value
-            for value in manifest.values()
-        )
-    ):
+def manifest_entries(manifest):
+    if not isinstance(manifest, dict) or not manifest or set(manifest) - TITLES.keys():
         raise ResearchError(
-            "Manifest must map supported analysis command names to local input paths."
+            "Manifest must map supported analysis command names to input paths or file/baseline objects."
         )
+    entries = []
+    for mode, value in manifest.items():
+        if isinstance(value, str):
+            value = {"file": value}
+        allowed = {"file", "baseline"} if mode == "rogue-ap" else {"file"}
+        if (
+            not isinstance(value, dict)
+            or "file" not in value
+            or set(value) - allowed
+            or not all(
+                isinstance(path, str) and path and "\0" not in path
+                for path in value.values()
+            )
+        ):
+            raise ResearchError(
+                "Each report input needs a nonempty file path; only rogue-ap accepts an optional baseline path."
+            )
+        entries.append((mode, value["file"], value.get("baseline")))
+    return entries
+
+
+def audit_report(manifest_path):
+    entries = manifest_entries(json_input(manifest_path, 65536))
     try:
         base = Path(manifest_path).resolve().parent
     except (OSError, RuntimeError):
@@ -986,15 +1044,19 @@ def audit_report(manifest_path):
         "Local evidence analysis only. Paths, credentials, packet payloads and peer identifiers are omitted.",
         "",
     ]
-    for mode, value in manifest.items():
+    statuses = Counter()
+    for mode, value, baseline in entries:
         try:
-            data = analyze(mode, base / value)
+            data = analyze(
+                mode, base / value, base / baseline if baseline is not None else None
+            )
         except ResearchError as error:
             data = result(mode, {}, [str(error)], "not_assessed")
         except OSError:
             data = result(
                 mode, {}, ["A local input/output operation failed."], "not_assessed"
             )
+        statuses[data["status"]] += 1
         sections += [
             "## " + data["analysis"],
             "",
@@ -1003,6 +1065,15 @@ def audit_report(manifest_path):
             "```",
             "",
         ]
+    sections += [
+        "## Assessment summary",
+        "",
+        f"Requested sections: {len(entries)}",
+        f"Unavailable sections: {statuses['not_assessed']}",
+        f"Sections requiring an approved-AP baseline: {statuses['baseline_required']}",
+        "Completion is not a security verdict; inspect every section.",
+        "",
+    ]
     sections += [
         "## Recommendations",
         "Use WPA3 with required PMF where clients support it, disable WPS, update firmware and use unique random credentials.",

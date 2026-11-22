@@ -313,7 +313,8 @@ restoration; no real packet capture, cracking job or firewall change is performe
 ## Advanced Extension
 
 Main menu **15** opens the five requested research sections; laboratory **13**
-opens the same extension. Menus use the native airgeddon title/color helpers,
+opens the same extension. Main menu **16** and extension **6** open the shared
+evidence, wordlist/password audit and report tools. Menus use the native airgeddon title/color helpers,
 ASCII separators and aligned option numbering, with a pause after results.
 No terminal font override or graphical dashboard is introduced. Section labels
 are currently English; the existing application selection/pause prompts retain
@@ -324,6 +325,7 @@ Open the local menus without starting the main application or requiring root:
 ```bash
 bash airgeddon.sh --lab advanced
 bash airgeddon.sh --lab laboratory
+bash airgeddon.sh --lab research-tools
 ```
 
 These are working local analyzers, not fixed demonstration results. Evidence
@@ -332,3 +334,16 @@ unchanged: modifying a capture would invalidate the evidence being analyzed.
 Nothing starts an unspecified on-air test, service, recovery job or config edit.
 See [ADVANCED_EXTENSION.md](ADVANCED_EXTENSION.md) for every input format, CLI
 command, output status, evidence/report workflow and analysis limitation.
+
+### Research reliability improvements
+
+- Repeated same-peer/stage/replay EAPOL rows preserve already matched handshake
+  stages; strict peer/replay/timing checks and cryptographic limitations remain.
+- Bounded tshark diagnostics distinguish recognized version/field, capture-format,
+  truncation and permission failures without exposing raw tool diagnostics.
+- Report manifests support `{"rogue-ap":{"file":"authorized.pcapng","baseline":"approved.json"}}`,
+  while existing path-only manifests remain valid. Summaries explicitly count
+  unavailable and baseline-required sections.
+
+These are functional changes, not an artificial source-line multiplier or a
+claim of 5× throughput, recovery success, or complete wireless-security coverage.

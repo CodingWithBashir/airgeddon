@@ -19,16 +19,22 @@ explicit simulations; existing recovery menus remain separate, explicit actions.
 ```bash
 bash airgeddon.sh --lab advanced       # five research sections
 bash airgeddon.sh --lab laboratory    # diagnostics plus research/report tools
+bash airgeddon.sh --lab research-tools # direct evidence/audit/report utilities
 bash airgeddon.sh --lab help
 ```
 
 In the full application, main menu **15** opens the extension and **14** opens
-the laboratory. The laboratory preserves entries 1–12 and adds extension (13),
+the laboratory. Main menu **16** and extension entry **6** provide direct access
+to evidence records, wordlist/password audits and report generation. The five
+original research sections remain entries 1–5. The laboratory preserves entries
+1–12 and adds extension (13),
 wordlist analysis (14), password audit (15), and report generation (16).
 Menus use native airgeddon star titles, dash separators and numbering; results
 pause before returning. Terminal font selection remains under your terminal's
 control. Research labels are currently English. Normal airgeddon language
-selection/pause prompts are reused in the full application.
+selection/pause and invalid-selection prompts are reused in the full application.
+Invalid top-level/category selections pause before redrawing, so the explanation
+remains visible.
 
 ## Analysis commands and inputs
 
@@ -83,12 +89,21 @@ SSIDs, MAC addresses, passwords or EAP identities are printed. Input evidence is
 not rewritten. The tshark process is killed on deadline or output-budget failure.
 
 - At most **20,000 input packets**, not 20,000 matching packets.
-- **15 seconds** per capture analysis and **4 MiB** of parser output.
-- Older tshark versions missing required fields return an analysis error.
+- **15 seconds** per capture analysis, **4 MiB** of parser output, and
+  **64 KiB** of private diagnostics. Both pipes are drained concurrently to avoid
+  deadlock; exceeding either budget terminates tshark.
+- Older tshark versions missing required fields return a specific upgrade error.
+  Recognized unsupported-format, truncated-file and permission diagnostics have
+  distinct static messages. Unknown failures use a generic error; raw tshark
+  diagnostics and paths are never printed or copied into reports.
 - Empty matching results are not proof of absence; encrypted, truncated, wired,
   filtered or incomplete captures can omit relevant evidence.
 - Handshake candidates are **structural only**: no MIC/nonces/cryptographic
-  authenticity, credential correctness or recoverability verification.
+  authenticity, credential correctness or recoverability verification. Repeated
+  same-peer/stage/replay rows no longer erase matched prefixes (for example, a
+  repeated M1 after M2). `repeated_stage_rows` counts these repeats, not confirmed
+  radio retransmissions. Same-peer order, replay and per-gap timing checks still
+  apply; one structural candidate is counted per AP/client/replay key.
 - PMF flags/disconnect counts do not establish a PMF bypass. HE/EHT elements do
   not certify generation, bands, interoperability or actual throughput.
 - Same-name APs are normal in managed networks; spoofing, baseline incompleteness
@@ -164,14 +179,17 @@ rejected. Devices, directories and FIFOs are rejected without reading them.
 ## Audit Report Generator: recompute, do not invent
 
 Create a JSON manifest mapping supported analysis command names from the table
-(or `wordlist-analyze`) to authorized local input paths. Relative paths resolve
-against the manifest directory, not the current working directory. Example:
+(or `wordlist-analyze`) to authorized local input paths. Each value may be a
+path string or an object with `file`. Only `rogue-ap` also accepts `baseline`.
+Both input and baseline paths resolve relative to the manifest directory, not
+the current working directory. Absolute paths remain supported. Example:
 
 ```json
 {
   "sae-analysis": "hostapd.conf",
   "handshake-validate": "authorized.pcapng",
-  "pmkid-analyze": "authorized.22000"
+  "pmkid-analyze": "authorized.22000",
+  "rogue-ap": {"file": "authorized.pcapng", "baseline": "approved.json"}
 }
 ```
 
@@ -185,8 +203,11 @@ inputs/tools or other analysis failures appear as **`not_assessed`** sections,
 not passes. A report can therefore be created successfully while some sections
 were unavailable; inspect every section. Omitting the output path prints to
 stdout. Manifests are at most **64 KiB**; supported modes occur at most once.
-Each capture section has its own 15-second budget. This manifest version cannot
-supply a rogue-AP baseline: use `rogue-ap --baseline` separately.
+Each capture section has its own 15-second budget. Missing or invalid baseline
+files produce `not_assessed`; an omitted baseline produces `baseline_required`.
+Malformed manifest options are rejected before any analyses run. A report summary
+counts requested, unavailable and baseline-required sections; report creation
+is never a declaration that every assessment passed.
 Reports omit source paths, peer identifiers and credentials. They are not
 security certificates; review before sharing and keep outside the repository.
 
@@ -212,7 +233,7 @@ file descriptors, parser failure and output-budget termination. No test starts
 wireless transmissions, cracking, package installation or firewall changes.
 `tests/test_research_integration.py` additionally generates actual PCAP and
 PCAPNG files and sends them through the installed tshark and public CLI. It
-checks all capture routes, a structural M1–M4 exchange, incomplete evidence,
+checks all capture routes, structural M1–M4 exchanges including repeated stages, incomplete evidence,
 malformed input, AP/PMF/EAP counts, privacy and unchanged source bytes. Frames
 are entirely synthetic and contain no real credentials or cryptographically
 valid handshake. No radio or network access is used.

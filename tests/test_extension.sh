@@ -42,4 +42,20 @@ if grep -q 'N8!' "$tmp/action"; then echo 'Config secret leaked'; exit 1; fi
 bash -c 'source ./airgeddon.sh; source ./scripts/extension_menu.sh; initialize_colors; extension_title "AIRGEDDON ADVANCED EXTENSION"' > "$tmp/native"
 grep -q 'AIRGEDDON ADVANCED EXTENSION' "$tmp/native"
 if grep -q $'\033' "$tmp/native"; then echo 'Native redirected title contains ANSI'; exit 1; fi
-printf '%s\n' 'PASS: extension hierarchy, native rendering, spacing, real CLI writes and secret handling'
+#Utilities are available directly, through Advanced section 6, and through
+#the main application's new entry point. Reports are actual private files.
+printf '6\n1\n0\n0\n0\n' | bash airgeddon.sh --lab advanced > "$tmp/utilities"
+grep -q 'Evidence, audits and reports' "$tmp/utilities"
+printf '%s\n' '{"sae-analysis":{"file":"hostapd.conf"}}' > "$tmp/manifest.json"
+printf '2\n%s\n%s\n\n0\n' "$tmp/manifest.json" "$tmp/new-report.md" | bash airgeddon.sh --lab research-tools > "$tmp/report-menu"
+grep -q 'Status: no_flagged_issues' "$tmp/new-report.md"
+grep -q 'Unavailable sections: 0' "$tmp/new-report.md"
+[[ $(stat -c %a "$tmp/new-report.md") = 600 ]]
+printf '0\n' | bash -c 'source ./airgeddon.sh; scriptfolder="$PWD/"; research_tools_menu' > "$tmp/direct"
+grep -q 'Evidence, audits and reports' "$tmp/direct"
+printf 'invalid\n\n0\n' | bash airgeddon.sh --lab advanced > "$tmp/invalid"
+grep -q 'Invalid selection.' "$tmp/invalid"
+bash -c 'source scripts/extension_menu.sh; language=SPANISH; language_strings() { printf "%s %s %s\n" "$@"; }; extension_invalid_selection' > "$tmp/localized"
+grep -qx 'SPANISH 76 red' "$tmp/localized"
+if grep -q $'\033' "$tmp/report-menu"; then echo 'Utilities output contains ANSI'; exit 1; fi
+printf '%s\n' 'PASS: extension hierarchy, native rendering, reports, localization delegation and secret handling'

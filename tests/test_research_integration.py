@@ -176,6 +176,16 @@ class TsharkIntegrationTests(unittest.TestCase):
         self.assertEqual(data["status"], "inconclusive")
         self.assertEqual(data["metrics"]["structural_candidates"], 0)
 
+    def test_repeated_m1_does_not_erase_m2(self):
+        path = self.root / "repeated.pcapng"
+        path.write_bytes(
+            pcapng([key_message(message) for message in (1, 2, 1, 3, 3, 4)])
+        )
+        data = r.analyze("handshake-validate", path)
+        self.assertEqual(data["status"], "candidate")
+        self.assertEqual(data["metrics"]["structural_candidates"], 1)
+        self.assertEqual(data["metrics"]["repeated_stage_rows"], 2)
+
     def test_malformed_capture_is_error(self):
         path = self.root / "invalid.pcap"
         path.write_bytes(b"not a capture\nPRIVATE_DIAGNOSTIC_MARKER")
@@ -205,13 +215,21 @@ class TsharkIntegrationTests(unittest.TestCase):
                 {
                     "frame-analysis": self.captures[1].name,
                     "handshake-validate": self.captures[0].name,
+                    "rogue-ap": {
+                        "file": self.captures[0].name,
+                        "baseline": "approved.json",
+                    },
                 }
             )
+        )
+        (self.root / "approved.json").write_text(
+            '{"approved_bssids":["02:00:00:00:00:01"]}'
         )
         report = r.audit_report(manifest)
         self.assertIn("Status: candidate", report)
         self.assertNotIn("not_assessed", report)
         self.assertNotIn(SSID.decode(), report)
+        self.assertIn("not in baseline aps: 1", report)
 
 
 if __name__ == "__main__":

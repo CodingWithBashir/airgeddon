@@ -229,6 +229,30 @@ class ResearchTests(unittest.TestCase):
                 "inconclusive",
             )
 
+    def test_handshake_repeated_stages_preserve_valid_prefixes(self):
+        original = self.handshake()
+        rows = []
+        for index, message in enumerate((1, 2, 1, 3, 3, 4), 1):
+            row = original[message - 1][:]
+            row[:2] = [str(index), str(100 + index)]
+            rows.append(row)
+        data = r.handshake_rows(rows, "handshake-validate")
+        self.assertEqual(data["status"], "candidate")
+        self.assertEqual(data["metrics"]["structural_candidates"], 1)
+        self.assertEqual(data["metrics"]["repeated_stage_rows"], 2)
+        self.assertEqual(data["metrics"]["message_1"], 2)
+        # Tolerating duplicates must not weaken peer, replay or timing checks.
+        for column, value in ((1, "1000"), (2, "02:00:00:00:00:03"), (5, "99")):
+            modified = [row[:] for row in rows]
+            modified[-1][column] = value
+            self.assertEqual(
+                r.handshake_rows(modified, "handshake-validate")["status"],
+                "inconclusive",
+            )
+        self.assertEqual(
+            r.handshake_rows(rows[:-1], "handshake-validate")["status"], "inconclusive"
+        )
+
     def test_all_capture_routes(self):
         for mode in (
             r.TITLES.keys() - r.CONFIG_MODES - r.PMKID_MODES - {"wordlist-analyze"}
@@ -305,6 +329,61 @@ class ResearchTests(unittest.TestCase):
         with self.assertRaises(r.ResearchError):
             r.audit_report(self.put("invalidmanifest", '{"unknown":"hostapd.conf"}'))
 
+    def test_report_baseline_objects_and_relative_paths(self):
+        folder = self.root / "nested"
+        folder.mkdir()
+        baseline = folder / "approved.json"
+        baseline.write_text('{"approved_bssids":["02:00:00:00:00:01"]}')
+        manifest = folder / "report.json"
+        manifest.write_text(
+            json.dumps(
+                {
+                    "rogue-ap": {
+                        "file": "../" + self.input.name,
+                        "baseline": "approved.json",
+                    },
+                    "sae-analysis": {"file": "../hostapd.conf"},
+                }
+            )
+        )
+        rows = [
+            ["02:00:00:00:00:01", "PRIVATE_SSID", "1", "8", "4"],
+            ["02:00:00:00:00:02", "PRIVATE_SSID", "0", "", ""],
+        ]
+        with patch.object(r, "query_capture", return_value=rows) as query:
+            text = r.audit_report(manifest)
+        self.assertEqual(query.call_args.args[0], folder / ("../" + self.input.name))
+        self.assertIn("not in baseline aps: 1", text)
+        self.assertIn("Unavailable sections: 0", text)
+        self.assertNotIn("baseline_required", text)
+        self.assertNotIn("PRIVATE_SSID", text)
+        self.assertNotIn(str(self.root), text)
+        baseline.unlink()
+        with patch.object(r, "query_capture", return_value=rows):
+            text = r.audit_report(manifest)
+        self.assertIn("not_assessed", text)
+        self.assertIn("Unavailable sections: 1", text)
+
+    def test_report_rejects_ambiguous_options_before_analysis(self):
+        for value in (
+            {"file": ""},
+            {"file": "capture", "baseline": None},
+            {"file": "capture", "baseline": ""},
+            {"file": "capture", "unknown": "x"},
+            {"baseline": "baseline"},
+            {"file": True},
+        ):
+            with self.subTest(value=value), self.assertRaises(r.ResearchError):
+                r.manifest_entries({"rogue-ap": value})
+        with self.assertRaises(r.ResearchError):
+            r.manifest_entries(
+                {"frame-analysis": {"file": "capture", "baseline": "baseline"}}
+            )
+        self.assertEqual(
+            r.manifest_entries({"frame-analysis": "capture"}),
+            [("frame-analysis", "capture", None)],
+        )
+
     def test_line_budgets_and_private_io_failures(self):
         for content in (b"x" * 8193, b"\n" * 100001):
             with self.assertRaises(r.ResearchError):
@@ -329,9 +408,20 @@ assert args[3:8] == ['-c', '20000', '-Y', 'wlan', '-T']
 with open(args[2], 'rb') as stream:
     assert stream.read() == b'synthetic bytes\\n'
 mode = os.environ.get('FIXTURE_MODE', '')
-if mode == 'fail':
-    print('SECRET', file=sys.stderr)
+diagnostics = {
+    'fail': 'SECRET',
+    'unsupported': "Some fields aren't valid: SECRET_FIELD",
+    'invalid': "The file SECRET_INPUT isn't a capture file in a format TShark understands.",
+    'truncated': 'The file SECRET_INPUT appears to have been cut short in the middle of a packet.',
+    'permissions': 'SECRET_INPUT: Permission denied',
+}
+if mode in diagnostics:
+    print(diagnostics[mode], file=sys.stderr)
     sys.exit(1)
+if mode == 'stderr-large':
+    sys.stderr.buffer.write(b'SECRET' * 12000)
+else:
+    print('PRIVATE_WARNING', file=sys.stderr)
 if mode == 'large':
     sys.stdout.buffer.write(b'x' * (4 * 1024 * 1024 + 1))
 else:
@@ -353,7 +443,15 @@ else:
                         self.input, "wlan", ["frame.number", "wlan.fc.type"]
                     )
                 self.assertIn("15-second", str(caught.exception))
-            for mode in ("fail", "large"):
+            for mode, expected in (
+                ("fail", "failed to inspect"),
+                ("large", "4 MiB"),
+                ("unsupported", "dissector fields"),
+                ("invalid", "supported capture file"),
+                ("truncated", "truncated"),
+                ("permissions", "permissions"),
+                ("stderr-large", "64 KiB"),
+            ):
                 with (
                     patch.dict(os.environ, {"FIXTURE_MODE": mode}),
                     self.assertRaises(r.ResearchError) as caught,
@@ -362,6 +460,7 @@ else:
                         self.input, "wlan", ["frame.number", "wlan.fc.type"]
                     )
                 self.assertNotIn("SECRET", str(caught.exception))
+                self.assertIn(expected, str(caught.exception))
         with (
             patch.object(r.shutil, "which", return_value=None),
             self.assertRaises(r.ResearchError),

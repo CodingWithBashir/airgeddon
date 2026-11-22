@@ -8269,6 +8269,7 @@ function main_menu() {
 	language_strings "${language}" 444
 	printf '%-4s%s\n' "14." "Assessment laboratory / tool diagnostics"
 	printf '%-4s%s\n' "15." "AIRGEDDON ADVANCED EXTENSION"
+	printf '%-4s%s\n' "16." "Evidence, audits and report tools"
 	print_hint
 
 	read -rp "> " main_option
@@ -8321,6 +8322,9 @@ function main_menu() {
 		15)
 			advanced_research_menu
 		;;
+		16)
+			research_tools_menu
+		;;
 		*)
 			invalid_menu_option
 		;;
@@ -8342,6 +8346,14 @@ function advanced_research_menu() {
 	#shellcheck source=scripts/extension_menu.sh
 	source "${scriptfolder}scripts/extension_menu.sh"
 	advanced_extension_menu
+}
+
+#Direct access to actual evidence records, audits and generated research reports.
+function research_tools_menu() {
+
+	#shellcheck source=scripts/extension_menu.sh
+	source "${scriptfolder}scripts/extension_menu.sh"
+	extension_tools_menu
 }
 
 #Offer a recovery handoff only after a verified capture was successfully saved.
