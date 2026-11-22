@@ -7,10 +7,23 @@
 airgeddon_parse_recovery_format() {
 	local LC_ALL=C input=$1 body character radix index
 	recovery_format_mask=''
+	recovery_format_custom=''
 	recovery_format_crunch=''
 	recovery_format_length=0
 	recovery_format_keyspace=1
 	recovery_format_capped=0
+	if [[ $input = mask:* ]]; then
+		local compiled
+		local -a fields=()
+		command -v python3 > /dev/null 2>&1 || return 2
+		compiled=$(python3 "${BASH_SOURCE[0]%/*}/operations.py" format-builder "$input" --charset1 "${recovery_format_custom_input:-}" --shell) || return 2
+		mapfile -t fields <<< "$compiled"
+		recovery_format_mask=${fields[0]}
+		recovery_format_length=${fields[1]}
+		recovery_format_keyspace=${fields[2]}
+		recovery_format_custom=${fields[3]:-}
+		return 0
+	fi
 	[[ $input = \{*\} && ${#input} -ge 10 && ${#input} -le 65 ]] || return 2
 	body=${input:1:${#input}-2}
 	[[ $body != *[!a-zA-Z0-9]* ]] || return 2
@@ -44,6 +57,7 @@ airgeddon_exec_recovery_format() {
 		esac
 		#These are application-generated version/backend flags, not shell syntax.
 		read -r -a options <<< "${hashcat_cmd_fix:-}"
+		[[ -z ${recovery_format_custom:-} ]] || options+=(-1 "$recovery_format_custom")
 		rm -f -- "${tmpdir}${hashcat_pot_tmp}" || return 2
 		hashcat -m "$plugin" -a 3 "${tmpdir}${hashcat_tmp_file}" "$recovery_format_mask" \
 			--potfile-disable -o "${tmpdir}${hashcat_pot_tmp}" "${options[@]}" | tee "${tmpdir}${hashcat_output_file}"
@@ -71,6 +85,7 @@ airgeddon_optional_recovery_format() {
 	local mode=$1 backend=$2 input confirmation
 	local recovery_format_mask='' recovery_format_crunch='' recovery_format_length=0
 	local recovery_format_keyspace=1 recovery_format_capped=0
+	local recovery_format_custom='' recovery_format_custom_input=''
 	case $mode in
 		personal_handshake_pmkid_capture|personal_handshake_pmkid_hash) ;;
 		*) return 0 ;;
@@ -79,19 +94,33 @@ airgeddon_optional_recovery_format() {
 		'Optional password format for this authorized offline recovery job.' \
 		'Enter {example}: uppercase letters mean A-Z, lowercase mean a-z, digits mean 0-9.' \
 		'Example: {OC43DE32} means ?u?u?d?d?u?u?d?d, NOT that exact password.' \
-		'Braces are delimiters, not password characters. Use 8-63 ASCII letters/digits only.' \
+		'Braces are delimiters. Or use mask:HOME?d?d?d?d for fixed text plus unknown positions.' \
+		'Masks support ?u ?l ?d ?s ?a, ?? for literal ?, and ?1 for a custom character set.' \
+		'Formats describe 8-63 printable ASCII characters. Explicit masks require Hashcat and Python 3.9+.' \
 		'A format REPLACES the selected dictionary/rules/length settings with a fixed-length search.' \
 		'Press Enter to skip. No format is saved for the next job.'
 	while true; do
 		IFS= read -rp 'Optional format: ' input || return 1
 		[[ -n $input ]] || return 0
+		recovery_format_custom_input=''
+		if [[ $input = mask:*'?1'* ]]; then
+			IFS= read -rp 'Custom characters for ?1 (literal characters): ' recovery_format_custom_input || return 1
+		fi
 		if ! airgeddon_parse_recovery_format "$input"; then
-			printf '%s\n' 'Invalid format. Use {8-63 ASCII letters/digits}, or Enter to skip.' >&2
+			printf '%s\n' 'Invalid format. Use {8-63 ASCII letters/digits}, mask: with 8-63 positions, or Enter to skip.' >&2
 			continue
 		fi
 		break
 	done
 	input=''
+	if [[ -e $recovery_format_mask || ( -n ${recovery_format_custom:-} && -e $recovery_format_custom ) ]]; then
+		printf '%s\n' 'The mask or custom set matches an existing filename, which Hashcat could interpret as a file. No job was started.' >&2
+		return 1
+	fi
+	if [[ $backend = aircrack && -z $recovery_format_crunch ]]; then
+		printf '%s\n' 'Explicit masks require a Hashcat option; no Aircrack recovery or fallback was started.' >&2
+		return 1
+	fi
 	if [[ $backend = aircrack ]] && ! command -v crunch > /dev/null 2>&1; then
 		printf '%s\n' 'This Aircrack format search requires Crunch. No recovery was started.' >&2
 		return 1

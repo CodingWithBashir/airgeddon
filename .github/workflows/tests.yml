@@ -27,12 +27,15 @@ jobs:
         os: [ubuntu-22.04, ubuntu-24.04]
     steps:
       - uses: actions/checkout@v5
-      - name: Install distribution tshark (no capture privileges required)
+      - name: Install offline integration tools (no capture privileges required)
         run: |
           sudo apt-get update
-          sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends tshark
+          sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends tshark hashcat aircrack-ng crunch
           tshark --version
-      - name: Real-dissector PCAP and PCAPNG integration tests
+      - name: Real-dissector captures and tiny installed-engine integration
         env:
           AIRGEDDON_REQUIRE_TSHARK_TESTS: '1'
-        run: python3 tests/test_research_integration.py
+          AIRGEDDON_REQUIRE_ENGINE_TESTS: '1'
+        run: |
+          python3 tests/test_research_integration.py
+          python3 tests/test_tool_integration.py

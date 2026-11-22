@@ -31,7 +31,7 @@ original research sections remain entries 1–5. The laboratory preserves entrie
 wordlist analysis (14), password audit (15), and report generation (16).
 Menus use native airgeddon star titles, dash separators and numbering; results
 pause before returning. Terminal font selection remains under your terminal's
-control. Research labels are currently English. Normal airgeddon language
+control. Core headings have a German/Spanish/French extension pack; missing translations fall back to English. Normal airgeddon language
 selection/pause and invalid-selection prompts are reused in the full application.
 Invalid top-level/category selections pause before redrawing, so the explanation
 remains visible.
@@ -250,3 +250,13 @@ integration tests. Generated capture files live only in temporary directories;
 no binary evidence files are committed. These checks do not substitute for
 validation against real acquired evidence and the specific tshark
 version/hardware in an authorized lab.
+
+## Managed operations and case folders
+
+Tools-menu entries 5–8 add preflight, richer fixed/custom formats, private named
+Hashcat jobs with checkpoint resume and filtered progress, and private case
+bundles with report-only export. Start/resume is always explicit; opening menus,
+creating profiles and creating cases never starts recovery. See
+[OPERATIONS.md](OPERATIONS.md) for the full interface, budgets, local translation
+pack and installed-engine validation scope. The legacy recovery workflows remain
+available; only new managed jobs require the modern Hashcat status/restore flags.

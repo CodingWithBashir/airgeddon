@@ -8269,7 +8269,7 @@ function main_menu() {
 	language_strings "${language}" 444
 	printf '%-4s%s\n' "14." "Assessment laboratory / tool diagnostics"
 	printf '%-4s%s\n' "15." "AIRGEDDON ADVANCED EXTENSION"
-	printf '%-4s%s\n' "16." "Evidence, audits and report tools"
+	printf '%-4s%s\n' "16." "Evidence, reports and managed recovery"
 	print_hint
 
 	read -rp "> " main_option
@@ -8348,7 +8348,8 @@ function advanced_research_menu() {
 	advanced_extension_menu
 }
 
-#Direct access to actual evidence records, audits and generated research reports.
+#Direct access to evidence, reports, preflight, formats, case folders and
+#explicitly confirmed managed recovery jobs (opening the menu starts no job).
 function research_tools_menu() {
 
 	#shellcheck source=scripts/extension_menu.sh

@@ -58,4 +58,15 @@ grep -q 'Invalid selection.' "$tmp/invalid"
 bash -c 'source scripts/extension_menu.sh; language=SPANISH; language_strings() { printf "%s %s %s\n" "$@"; }; extension_invalid_selection' > "$tmp/localized"
 grep -qx 'SPANISH 76 red' "$tmp/localized"
 if grep -q $'\033' "$tmp/report-menu"; then echo 'Utilities output contains ANSI'; exit 1; fi
+
+#New operations menus navigate without starting an engine.
+printf '7\n0\n8\n0\n0\n' | bash airgeddon.sh --lab research-tools > "$tmp/operations-menu"
+grep -q 'Managed offline recovery jobs' "$tmp/operations-menu"
+grep -q 'Private case folders' "$tmp/operations-menu"
+bash airgeddon.sh --lab format-builder 'mask:HOME?d?d?d?d' > "$tmp/format"
+grep -q '"candidates": 10000' "$tmp/format"
+AIRGEDDON_EXTENSION_LANGUAGE=GERMAN bash -c 'source scripts/extension_menu.sh; extension_option 7 "Managed offline recovery jobs"' > "$tmp/german"
+grep -q 'Verwaltete Offline-Wiederherstellung' "$tmp/german"
+COLUMNS=32 bash -c 'source scripts/extension_menu.sh; extension_title "A long title which must fit a narrow terminal"; extension_title "A long separator which must also fit" separator; extension_option 1 "A long option which should wrap on word boundaries"; extension_notice "A long notice which should wrap instead of overflowing"' > "$tmp/narrow"
+awk 'length($0) > 32 {exit 1}' "$tmp/narrow"
 printf '%s\n' 'PASS: extension hierarchy, native rendering, reports, localization delegation and secret handling'

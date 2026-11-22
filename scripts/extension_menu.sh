@@ -3,20 +3,26 @@
 #No network operations are performed by menu rendering or navigation.
 #Native helpers and traps consume these dynamically scoped menu/color variables.
 #shellcheck disable=SC2034
+#shellcheck source=scripts/extension_i18n.sh
+source "${BASH_SOURCE[0]%/*}/extension_i18n.sh"
 
 extension_color_enabled() {
 	[[ -t 1 && ! ${NO_COLOR+x} && ${AIRGEDDON_BASIC_COLORS:-true} = true && ${TERM:-dumb} != dumb ]]
 }
 
 extension_title() {
-	local label=$1
+	local label
+	label=$(extension_text "$1")
 	local kind=${2:-title}
 	local width=80 symbol='*' body left right fill
 	[[ $kind = separator ]] && { width=60; symbol='-'; }
 	local columns=${COLUMNS:-80}
 	[[ $columns =~ ^[0-9]{1,3}$ ]] || columns=80
-	((columns < 40)) && columns=40
+	((columns < 24)) && columns=24
 	((width > columns)) && width=$columns
+	local max_label=$((width - 4))
+	[[ $kind != separator ]] || max_label=$((width - 6))
+	if ((${#label} > max_label)); then label="${label:0:$((max_label - 3))}..."; fi
 	#Use the actual original renderer at its standard width, not a competing theme.
 	if declare -F generate_dynamic_line > /dev/null && ((columns >= 80)); then
 		if extension_color_enabled; then
@@ -43,16 +49,37 @@ extension_title() {
 	printf '\n'
 }
 
+extension_wrapped() {
+	local label=$1 prefix=${2:-} continuation=${3:-} columns=${COLUMNS:-80} available chunk
+	[[ $columns =~ ^[0-9]{1,3}$ ]] || columns=80
+	((columns < 24)) && columns=24
+	while true; do
+		available=$((columns - ${#prefix}))
+		((${#label} > available)) || break
+		chunk=${label:0:available}
+		[[ $chunk != *' '* ]] || chunk=${chunk% *}
+		[[ -n $chunk ]] || chunk=${label:0:available}
+		printf '%s%s\n' "$prefix" "$chunk"
+		label=${label:${#chunk}}
+		label=${label# }
+		prefix=$continuation
+	done
+	printf '%s%s\n' "$prefix" "$label"
+}
+
 extension_option() {
-	#Match native "1.  Label" / "12. Label": the label always begins in column 5.
-	printf '%-4s%s\n' "$1." "$2"
+	local prefix
+	printf -v prefix '%-4s' "$1."
+	extension_wrapped "$(extension_text "$2")" "$prefix" '    '
 }
 
 extension_notice() {
+	local message
+	message=$(extension_wrapped "$(extension_text "$1")")
 	if extension_color_enabled && declare -F echo_yellow > /dev/null; then
-		echo_yellow "$1"
+		echo_yellow "$message"
 	else
-		printf '%s\n' "$1"
+		printf '%s\n' "$message"
 	fi
 }
 
@@ -83,7 +110,7 @@ extension_header() {
 	if declare -F language_strings > /dev/null; then
 		language_strings "${language:-ENGLISH}" 47 green
 	else
-		printf '%s\n' 'Select an option from menu:'
+		printf '%s\n' "$(extension_text 'Select an option from menu:')"
 	fi
 	if declare -F print_simple_separator > /dev/null; then
 		if extension_color_enabled; then
@@ -103,7 +130,7 @@ extension_pause() {
 	if declare -F language_strings > /dev/null; then
 		language_strings "${language:-ENGLISH}" 115 read
 	else
-		IFS= read -rp 'Press [Enter] to continue: ' _extension_pause || return 1
+		IFS= read -rp "$(extension_text 'Press [Enter] to continue: ')" _extension_pause || return 1
 	fi
 }
 
@@ -114,6 +141,11 @@ extension_run() {
 		return 2
 	fi
 	python3 "$extension_root/research.py" "$@"
+}
+
+extension_operations() {
+	command -v python3 > /dev/null 2>&1 || { extension_notice 'Python 3.9+ is required.'; return 2; }
+	python3 "${BASH_SOURCE[0]%/*}/operations.py" "$@"
 }
 
 extension_file_action() {
@@ -240,6 +272,8 @@ advanced_extension_menu() {
 }
 
 extension_tools_menu() {
+	#shellcheck source=scripts/operations_menu.sh
+	source "${BASH_SOURCE[0]%/*}/operations_menu.sh"
 	local current_menu=research_tools_menu
 	local selection
 	while true; do
@@ -248,6 +282,10 @@ extension_tools_menu() {
 		extension_option 2 'Audit Report Generator (supports approved-AP baselines)'
 		extension_option 3 'Wordlist Analyzer'
 		extension_option 4 'Password Strength Auditor (hidden prompt)'
+		extension_option 5 'Recovery preflight checks'
+		extension_option 6 'Password Format Builder'
+		extension_option 7 'Managed offline recovery jobs'
+		extension_option 8 'Private case folders'
 		IFS= read -rp '> ' selection || return
 		case $selection in
 			0) return 0 ;;
@@ -255,6 +293,10 @@ extension_tools_menu() {
 			2) extension_report_action ;;
 			3) extension_file_action wordlist-analyze ;;
 			4) extension_run password-audit --text ;;
+			5) extension_preflight_action ;;
+			6) extension_format_builder ;;
+			7) extension_job_menu; continue ;;
+			8) extension_case_menu; continue ;;
 			*) extension_invalid_selection ;;
 		esac
 		extension_pause || return

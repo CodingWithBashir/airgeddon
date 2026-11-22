@@ -11,3 +11,7 @@ desktop.ini
 #Python audit module caches
 __pycache__/
 *.py[cod]
+
+#Private user-selected job/case storage (never commit evidence or results)
+.airgeddon-jobs/
+.airgeddon-cases/

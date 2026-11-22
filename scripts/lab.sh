@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 #Local laboratory entry point. Analyzes real inputs and saves explicitly requested reports.
-#Does not capture traffic, crack passwords or install tools.
+#Never captures traffic or installs tools. Explicit job-run/job-resume commands
+#start authorized offline recovery only with --yes confirmation.
 
 lab_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd) || exit 1
 #shellcheck source=scripts/lab_tools.sh
@@ -42,6 +43,11 @@ lab_usage() {
 		'  evidence FILE [--record NEWFILE] | evidence-verify FILE RECORD  Evidence management.' \
 		'  wordlist-analyze FILE | password-audit [--stdin]  Local audits.' \
 		'  audit-report MANIFEST [NEWFILE]  Generate an actual private report.' \
+		'  format-builder SPEC [--charset1 CHARS]  Preview fixed characters, classes and keyspace.' \
+		'  recovery-preflight FILE OUTPUT_DIR (--wordlist FILE | --format SPEC)  Validate a managed job.' \
+		'  job-create FILE NEW_DIR --name NAME (--wordlist FILE | --format SPEC) [--runtime SEC] [--workload 1|2|3]' \
+		'  job-run DIR --yes | job-resume DIR --yes | job-status DIR  Explicit managed Hashcat jobs.' \
+		'  case-create NEW_DIR MANIFEST | case-export DIR NEW_REPORT  Private evidence bundles.' \
 		'  Add --text to analysis commands for terminal-friendly output (JSON is the CLI default).' \
 		'Only assess files and networks you own or are authorized to test.' \
 		'Password recovery remains an explicit choice in the existing offline recovery menu.' \
@@ -102,6 +108,9 @@ lab_main() {
 				laboratory) extension_laboratory_menu ;;
 				research-tools) extension_tools_menu ;;
 			esac
+		;;
+		format-builder|recovery-preflight|job-create|job-run|job-resume|job-status|case-create|case-export)
+			extension_operations "$@"
 		;;
 		wpa-analysis|sae-analysis|wps-assessment|enterprise-eap|auth-diagnostics|frame-analysis|pmf-analysis|wifi-generation|eapol-analysis|rogue-ap|evil-twin|client-threat|handshake-validate|pmkid-forensics|pmkid-analyze|wordlist-analyze|password-audit|evidence|evidence-verify|audit-report|wpa2-audit|wpa3-audit)
 			extension_run "$@"

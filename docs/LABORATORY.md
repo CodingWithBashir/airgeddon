@@ -75,8 +75,10 @@ Before a personal offline recovery job starts, an optional **password format**
 prompt accepts a position-by-position example in braces, such as `{OC43DE32}`.
 Uppercase letters stand for A–Z, lowercase letters for a–z, and digits for 0–9;
 the example maps to `?u?u?d?d?u?u?d?d`. Braces are delimiters, not part of the
-password. This version accepts **8–63 ASCII alphanumeric positions** (no symbols,
-literal/fixed characters, raw Hashcat mask syntax or 64-digit raw PSKs).
+password. Brace examples accept **8–63 ASCII alphanumeric positions**. For fixed
+characters, symbols and a custom character set, Hashcat selections also accept
+`mask:HOME?d?d?d?d` and the explicit format builder described in
+[OPERATIONS.md](OPERATIONS.md). Raw 64-digit PSKs remain outside this interface.
 This is a character-type template, **not** the exact password to try.
 
 - **Press Enter to skip** and keep the selected dictionary/rules/bruteforce flow.
@@ -347,3 +349,17 @@ command, output status, evidence/report workflow and analysis limitation.
 
 These are functional changes, not an artificial source-line multiplier or a
 claim of 5× throughput, recovery success, or complete wireless-security coverage.
+
+## Managed operations
+
+Main menu **16** / `--lab research-tools` now includes preflight (5), an explicit
+format builder (6), named private Hashcat jobs with progress/runtime/workload and
+verified checkpoint resume (7), and case folders/redacted report export (8).
+Creating a profile does not start recovery: run/resume requires confirmation.
+See [OPERATIONS.md](OPERATIONS.md) for commands, input snapshots, supported tool
+versions, workload-vs-CPU-cap distinctions, translation coverage and limitations.
+
+The new translation pack covers core German/Spanish/French headings and selected
+operations prompts, with English fallback for untranslated strings/languages.
+Installed-engine tests are optional locally and required in CI; they do not
+establish real GPU/checkpoint compatibility when skipped or mocked.

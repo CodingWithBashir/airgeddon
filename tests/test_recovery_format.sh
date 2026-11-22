@@ -149,4 +149,11 @@ hashcat_status=0
 : > "$tmp/events"
 airgeddon_optional_recovery_format enterprise hashcat < /dev/null
 [[ ! -s $tmp/events ]]
+
+#Explicit masks retain fixed characters and escape custom question marks.
+airgeddon_parse_recovery_format 'mask:HOME?d?d?d?d'
+[[ $recovery_format_mask = 'HOME?d?d?d?d' && $recovery_format_keyspace = 10000 && -z $recovery_format_crunch ]]
+recovery_format_custom_input='AB?'
+airgeddon_parse_recovery_format 'mask:HOME000?1'
+[[ $recovery_format_custom = 'AB??' && $recovery_format_keyspace = 3 ]]
 printf '%s\n' 'PASS: optional recovery formats, legacy fallback, validation, literal argv and backend/error handling'
