@@ -59,6 +59,35 @@ class ResearchTests(unittest.TestCase):
         self.assertEqual(r.analyze("wpa-analysis", weak)["status"], "issues_found")
         self.assertEqual(r.analyze("wps-assessment", weak)["status"], "review")
 
+    def test_config_preserves_credential_whitespace(self):
+        template = "wpa=2\nwpa_key_mgmt=WPA-PSK\nrsn_pairwise=CCMP\nieee80211w=2\n"
+        seed = ("N8!pL7-kR4#vZ2" * 5)[:63]
+        for secret in (" " + seed, seed + " ", "\t" + seed, seed + "\t", "é" * 32):
+            with self.subTest(secret_bytes=len(secret.encode())):
+                path = self.put(
+                    "whitespace.conf", template + "wpa_passphrase=" + secret + "\r\n"
+                )
+                original = path.read_bytes()
+                self.assertEqual(r.config_input(path)["wpa_passphrase"], secret)
+                data = r.analyze("wpa-analysis", path)
+                self.assertEqual(data["status"], "issues_found")
+                self.assertTrue(any("8-63 byte" in item for item in data["findings"]))
+                self.assertNotIn(seed, json.dumps(data))
+                self.assertEqual(path.read_bytes(), original)
+        for key, secret in (
+            ("wpa_passphrase", "  ab#cd\t "),
+            ("wpa_psk", " " + "a" * 64),
+            ("sae_password", "  a\v\f\u0085b |id=test"),
+        ):
+            path = self.put("exact.conf", template + key + "=" + secret + "\n")
+            self.assertEqual(r.config_input(path)[key], secret)
+        path = self.put("invalid-psk.conf", template + "wpa_psk= " + "a" * 64 + "\n")
+        self.assertEqual(r.analyze("wpa-analysis", path)["status"], "issues_found")
+        path = self.put(
+            "valid-spaces.conf", template + "wpa_passphrase= " + seed[:61] + " \n"
+        )
+        self.assertEqual(r.analyze("wpa-analysis", path)["status"], "no_flagged_issues")
+
     def test_config_refuses_ambiguous_or_invalid_inputs(self):
         for text in (
             "wpa=2\nwpa=3",

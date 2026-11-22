@@ -1,4 +1,4 @@
-name: Shell regression checks
+name: Shell and research regression checks
 
 on:
   pull_request:
@@ -18,3 +18,21 @@ jobs:
         run: bash tests/run.sh
       - name: Lint laboratory utilities and tests
         run: shellcheck scripts/*.sh tests/*.sh
+
+  tshark-integration:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, ubuntu-24.04]
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install distribution tshark (no capture privileges required)
+        run: |
+          sudo apt-get update
+          sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends tshark
+          tshark --version
+      - name: Real-dissector PCAP and PCAPNG integration tests
+        env:
+          AIRGEDDON_REQUIRE_TSHARK_TESTS: '1'
+        run: python3 tests/test_research_integration.py

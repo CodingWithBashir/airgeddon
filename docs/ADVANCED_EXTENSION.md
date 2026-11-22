@@ -64,7 +64,9 @@ Supply one effective UTF-8 hostapd `key=value` configuration, with explicit `wpa
 Blank lines and full-line comments are accepted. Includes, multiple `bss`
 sections, duplicate assessed keys and unsupported enumerated setting values
 are rejected rather than guessed. Unknown keys are not assessed; they are not
-executed. External secret files, runtime overrides, driver behavior, firmware,
+executed. Inline credential values retain their exact whitespace and UTF-8 byte
+lengths; only LF/CRLF line terminators are removed. External secret files,
+runtime overrides, driver behavior, firmware,
 certificates and enterprise policy are not resolved or certified.
 
 Examples of checks are whether `wpa=2` and modern RSN ciphers are explicit,
@@ -208,5 +210,22 @@ checks, and Python unit tests with synthetic files and mocked dissector output.
 A real executable fixture tests subprocess argument handling, inherited regular
 file descriptors, parser failure and output-budget termination. No test starts
 wireless transmissions, cracking, package installation or firewall changes.
-These checks do not substitute for validation against real captures and the
-specific installed tshark version/hardware in an authorized lab.
+`tests/test_research_integration.py` additionally generates actual PCAP and
+PCAPNG files and sends them through the installed tshark and public CLI. It
+checks all capture routes, a structural M1–M4 exchange, incomplete evidence,
+malformed input, AP/PMF/EAP counts, privacy and unchanged source bytes. Frames
+are entirely synthetic and contain no real credentials or cryptographically
+valid handshake. No radio or network access is used.
+
+The integration suite explicitly skips when tshark is absent locally. To require
+it (and fail rather than skip if missing), run:
+
+```bash
+AIRGEDDON_REQUIRE_TSHARK_TESTS=1 python3 tests/test_research_integration.py
+```
+
+CI installs distribution tshark on Ubuntu 22.04 and 24.04 and requires these
+integration tests. Generated capture files live only in temporary directories;
+no binary evidence files are committed. These checks do not substitute for
+validation against real acquired evidence and the specific tshark
+version/hardware in an authorized lab.

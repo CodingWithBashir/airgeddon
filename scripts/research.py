@@ -565,9 +565,12 @@ def config_input(path):
         "sae_password",
     }
     config = {}
-    for raw in text.splitlines():
-        line = raw.strip()
-        if not line or line.startswith("#"):
+    credentials = {"wpa_passphrase", "wpa_psk", "sae_password"}
+    # Only LF/CRLF terminate configuration lines. Other whitespace may be part
+    # of a credential and must not change the value/byte length being audited.
+    for raw in text.split("\n"):
+        line = raw.removesuffix("\r")
+        if not line.strip() or line.lstrip().startswith("#"):
             continue
         if "=" not in line:
             raise ResearchError(
@@ -584,7 +587,7 @@ def config_input(path):
                 raise ResearchError(
                     "Duplicate assessed configuration keys are ambiguous."
                 )
-            config[key] = value.strip()
+            config[key] = value if key in credentials else value.strip()
     if "wpa" not in config:
         raise ResearchError("An explicit hostapd wpa setting is required.")
     for key, allowed in {
