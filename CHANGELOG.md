@@ -1,4 +1,8 @@
 ### Unreleased (BashirMonZ fork)
+ - Added local process/listener health snapshots, aggregate wireless capabilities, offline EAPOL evidence checks and capture/wordlist preflight
+ - Added fixed offline training and allowlisted diagnostic reports with private no-overwrite file publication
+ - Added guarded TERM/EXIT recovery, firewall snapshot validation before global cleanup and snapshot retention on failed restoration
+ - Added hardware-free regression tests for assessments, report privacy, signal cleanup and firewall failure handling
  - Added an optional dragon-themed portal initialization/status display and service-free preview, without altering operational behavior
  - Added cached CPU-only Hashcat detection, throughput/balanced/off profiles, and backend diagnostics with hardware-free regression coverage
  - Expanded all configurable capture/WPS/analysis timeout ranges to 1–40000 seconds without changing defaults

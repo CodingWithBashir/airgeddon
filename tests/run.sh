@@ -8,4 +8,7 @@ bash tests/test_timeouts.sh
 bash tests/test_lab.sh
 bash tests/test_cpu_profile.sh
 bash tests/test_dragon_status.sh
+bash tests/test_assessment.sh
+bash tests/test_emergency_cleanup.sh
+bash tests/test_firewall_cleanup.sh
 printf '%s\n' 'All hardware-free regression checks passed.'

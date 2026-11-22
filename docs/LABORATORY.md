@@ -175,3 +175,115 @@ sudo env AIRGEDDON_DRAGON_UI=off bash airgeddon.sh
 The theme is optional: if its module is missing, the existing portal flow remains
 available without it. Hardware-free tests check the status output and verify
 that the mocked operational sequence is identical with the theme on or off.
+
+## Health, hardware, training and recovery preflight
+
+The laboratory menu now includes options **7–12**, also available without root:
+
+```bash
+bash airgeddon.sh --lab health
+bash airgeddon.sh --lab hardware
+bash airgeddon.sh --lab quality '/path/to/authorized capture.cap'
+bash airgeddon.sh --lab preflight '/path/to/authorized capture.cap' '/path/to/my dictionary.txt'
+bash airgeddon.sh --lab train
+bash airgeddon.sh --lab report
+bash airgeddon.sh --lab report './private-assessment.md'
+```
+
+### Local health snapshot
+
+`health` takes bounded, local `ps` and `ss` snapshots. It reports whether selected
+AP/DHCP/DNS/web processes and default-port listeners are observed, without dumping
+process arguments or endpoint addresses. Missing tools or failed queries are
+reported as **UNKNOWN**, not as evidence of health. Nothing is scanned or started.
+Run it in another terminal while an authorized lab workflow is running if needed.
+
+These are system-wide observations, not verified instance ownership or protocol
+health. A running process or open port does not prove correct configuration,
+application responses, successful DHCP allocation or working DNS. Custom ports
+are not included. Existing control windows and logs remain necessary.
+
+### Hardware summary
+
+`hardware` runs a bounded, read-only `iw list` query and reports aggregate advertised
+AP, managed and monitor-mode capabilities. It does not scan nearby networks,
+change an adapter's mode, show device identifiers or prove injection/concurrency
+support. Aggregation does not mean every mode is supported by every adapter.
+Use the existing dependency/version checks and CPU/backend report as appropriate.
+
+### Capture evidence and preflight
+
+`quality` runs a bounded offline tshark analysis requesting only EAPOL frame
+numbers, then prints the count and limitations. It prints no addresses, SSIDs or
+packet payloads. Positive evidence is **not a complete-handshake verdict**:
+retransmissions, missing messages, wrong targets and other validation issues may
+remain. Zero EAPOL packets does not exclude a PMKID-only capture.
+
+`preflight` combines that analysis with the existing private wordlist statistics.
+It returns failure when either inspection fails, and never launches a recovery
+job, chooses a target, generates candidates or estimates success probability.
+Dependencies: tshark, GNU timeout, readlink and awk. Each file inspection retains
+its existing 15-second budget plus up to two seconds for forced termination.
+
+### Offline training
+
+`train` is a fixed, clearly labeled simulation: it shows a mocked portal startup
+failure and cleanup discussion with the dragon display. It needs no services,
+wireless adapter, real capture or real credentials. It does not call wireless,
+packet-analysis or password-recovery tools. It is a teaching/demo mode, not a
+network isolation boundary for the ordinary interactive workflows.
+
+### Credential-safe diagnostic reports
+
+`report` generates an allowlisted summary of tool availability, local service
+observations, limitations and defensive recommendations. It **does not ingest
+or claim to redact arbitrary logs**. Raw logs, process arguments, hostnames,
+file paths, SSIDs, addresses, passwords and wordlist contents are excluded by
+construction. Review even this summary before sharing: service/tool presence can
+still reveal information about a host.
+
+With an output path, the report is staged privately in the destination directory
+and atomically published without overwriting existing files. The resulting file
+has mode **0600**. Existing regular files, symlinks, directories, FIFOs and devices
+are refused. Filesystems that cannot hard-link files fail safely. With no path,
+stdout is used; any shell redirection you add is your responsibility.
+
+The report is a diagnostic assessment aid, not evidence that a vulnerability was
+found. It includes WPA3/WPS/passphrase/firmware recommendations but does not invent
+an audit result or collect recovered credentials.
+
+## Emergency cleanup and firewall snapshot protection
+
+Interactive startup now installs TERM/EXIT handlers. Recovery is armed only after
+normal startup variables are initialized. Sourcing the script and read-only lab
+commands do not install or arm these traps. Normal explicit exits mark their
+existing cleanup complete so the EXIT handler does not repeat it.
+
+On termination or an unexpected shell exit, best-effort recovery:
+
+- acts only once, ignoring repeated TERM while recovery is in progress;
+- only signals tracked direct child processes after checking their parent PID;
+- requests routing/firewall restoration when a trusted snapshot exists;
+- requests monitor-mode and spoofed-MAC restoration and, for the last registered
+  session only, NetworkManager restart;
+- limits newly introduced recursive temporary cleanup to an owned, non-symlink
+  `/tmp/ag<number>/` instance directory;
+- keeps the original unexpected exit status; TERM exits with status 143.
+
+Firewall cleanup now validates a nonempty, owned, non-symlink snapshot using the
+selected backend's check/test mode **before global cleanup**. If validation fails,
+only instance rules are targeted, and the snapshot is retained. Restoration
+failure also retains the snapshot rather than deleting the only recovery copy.
+Backends lacking the required validation mode fail conservatively.
+
+This is not a guarantee of complete restoration. Existing firewall and multi-instance
+operations are not transactional or fully locked. Validation can fail against a
+changed live ruleset; restoration can fail after cleanup. Tmux-owned processes
+that are not children of the shell are not blindly terminated. Driver failures,
+service-manager hangs, externally changed state, SIGKILL, power loss and kernel
+failure may still require manual recovery. Inspect warnings and retained snapshots
+locally before applying any manual restoration. Keep assessments isolated and do
+not rely on this tool to preserve unrelated live production networking.
+
+Tests cover the new functionality with synthetic command output and mocked state
+restoration; no real packet capture, cracking job or firewall change is performed.

@@ -14,6 +14,9 @@ a captured handshake does not guarantee recovery. Use only on authorized network
 bash airgeddon.sh --lab help   # no sudo, GUI or wireless adapter needed
 bash airgeddon.sh --lab tools
 bash airgeddon.sh --lab dragon      # preview only; starts no services
+bash airgeddon.sh --lab health      # local process/listener snapshot
+bash airgeddon.sh --lab train       # offline simulated exercise
+bash airgeddon.sh --lab report      # allowlisted diagnostic summary
 bash airgeddon.sh --lab performance  # CPU/backend report; no benchmark
 bash tests/run.sh             # hardware-free regression checks
 ```
@@ -24,6 +27,12 @@ bounded device probe confirms a CPU-only backend. GPU/unknown backends retain
 existing settings. For a more responsive desktop use `AIRGEDDON_CPU_PROFILE=balanced`,
 or `off` to disable tuning. See the laboratory guide for trade-offs; no fixed
 speedup is guaranteed.
+
+The laboratory also offers hardware capability summaries, offline capture-quality
+evidence, capture/wordlist preflight, and private report files. Interactive sessions
+now have guarded TERM/EXIT recovery; firewall snapshots are checked before global
+cleanup and retained on restoration failure. These are best-effort safeguards, not
+a guarantee of complete restoration. See the guide for limitations.
 
 [![Version-shield]](https://raw.githubusercontent.com/v1s1t0r1sh3r3/airgeddon/master/CHANGELOG.md) [![Bash4.2-shield]](http://tldp.org/LDP/abs/html/bashver4.html#AEN21220) [![License-shield]](https://raw.githubusercontent.com/v1s1t0r1sh3r3/airgeddon/master/LICENSE) [![Docker-shield]](https://github.com/v1s1t0r1sh3r3/airgeddon/actions/workflows/master.yml) [![Discord-shield]](https://discord.gg/sQ9dgt9)
 

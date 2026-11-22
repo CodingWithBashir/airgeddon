@@ -7626,11 +7626,34 @@ function clean_routing_rules() {
 	debug_print
 
 	control_routing_status "end"
-	clean_initialize_iptables_nftables "end"
+	if is_last_airgeddon_instance; then
+		if ! validate_firewall_snapshot; then
+			clean_this_instance_iptables_nftables || true
+			printf '%s\n' 'Firewall snapshot missing, untrusted or invalid. Global rules were not flushed; manual review required.' >&2
+			return 1
+		fi
+		clean_initialize_iptables_nftables "end"
+		if ! restore_iptables_nftables; then
+			printf '%s\n' 'Firewall restore failed. Snapshot retained for manual recovery.' >&2
+			return 1
+		fi
+		rm -f -- "${system_tmpdir}${routing_tmp_file}" || return 1
+		routing_modified=0
+	else
+		clean_this_instance_iptables_nftables || return 1
+		routing_modified=0
+	fi
+}
 
-	if is_last_airgeddon_instance && [[ -n "${system_tmpdir}${routing_tmp_file}" ]]; then
-		restore_iptables_nftables
-		rm -rf "${system_tmpdir}${routing_tmp_file}" > /dev/null 2>&1
+#Validate before destructive cleanup; do not consume symlinks or another user's state.
+function validate_firewall_snapshot() {
+
+	local snapshot="${system_tmpdir}${routing_tmp_file}"
+	[[ -f "${snapshot}" && -s "${snapshot}" && ! -L "${snapshot}" && -O "${snapshot}" ]] || return 1
+	if [ "${iptables_nftables}" -eq 1 ]; then
+		"${iptables_cmd}" --check -f "${snapshot}" > /dev/null 2>&1
+	else
+		"${iptables_cmd}-restore" --test < "${snapshot}" > /dev/null 2>&1
 	fi
 }
 
@@ -8307,6 +8330,7 @@ function laboratory_menu() {
 
 	local lab_choice
 	local lab_path
+	local lab_wordlist
 	while true; do
 		printf '\n%s\n' "Assessment laboratory — maintained by ${fork_maintainer}" \
 			"Use only captures and networks you own or are authorized to assess." \
@@ -8316,6 +8340,12 @@ function laboratory_menu() {
 			"4. Open existing offline password-recovery menu" \
 			"5. CPU/backend profile report (bounded device probe)" \
 			"6. Dragon status display preview (no services started)" \
+			"7. Local service-health snapshot (read-only)" \
+			"8. Wireless hardware capability summary (no scan)" \
+			"9. Capture-quality evidence report (read-only)" \
+			"10. Offline training simulation" \
+			"11. Privacy-filtered diagnostic report (stdout)" \
+			"12. Authorized capture/wordlist preflight (no recovery launched)" \
 			"0. Back" "Windows support — coming soon"
 		IFS= read -rp '> ' lab_choice || return
 		case "${lab_choice}" in
@@ -8335,6 +8365,19 @@ function laboratory_menu() {
 			;;
 			5) bash "${scriptfolder}scripts/lab.sh" performance ;;
 			6) bash "${scriptfolder}scripts/lab.sh" dragon ;;
+			7) bash "${scriptfolder}scripts/lab.sh" health ;;
+			8) bash "${scriptfolder}scripts/lab.sh" hardware ;;
+			9)
+				IFS= read -rp 'Authorized capture path: ' lab_path || return
+				bash "${scriptfolder}scripts/lab.sh" quality "${lab_path}"
+			;;
+			10) bash "${scriptfolder}scripts/lab.sh" train ;;
+			11) bash "${scriptfolder}scripts/lab.sh" report ;;
+			12)
+				IFS= read -rp 'Authorized capture path: ' lab_path || return
+				IFS= read -rp 'Your wordlist path: ' lab_wordlist || return
+				bash "${scriptfolder}scripts/lab.sh" preflight "${lab_path}" "${lab_wordlist}"
+			;;
 			*) printf '%s\n' "Invalid selection." ;;
 		esac
 	done
@@ -18024,6 +18067,7 @@ function exit_script_option() {
 	fi
 
 	echo
+	airgeddon_cleanup_complete=1
 	if [ "${AIRGEDDON_WINDOWS_HANDLING}" = "tmux" ]; then
 		clean_env_vars
 		no_hardcore_exit=1
@@ -18064,6 +18108,7 @@ function hardcore_exit() {
 		echo -e "${green_color} Ok\r${normal_color}"
 	fi
 
+	airgeddon_cleanup_complete=1
 	if [ "${AIRGEDDON_WINDOWS_HANDLING}" = "tmux" ]; then
 		clean_env_vars
 		if ! kill_tmux_session "${session_name}"; then
@@ -18073,6 +18118,78 @@ function hardcore_exit() {
 		clean_env_vars
 		exit ${exit_code}
 	fi
+}
+
+#Best-effort noninteractive cleanup for TERM and unexpected shell exit.
+#Only runs after interactive initialization; lab commands never arm this handler.
+function emergency_exit_cleanup() {
+
+	if [[ "${airgeddon_cleanup_ready:-0}" != 1 ]] || [[ "${airgeddon_cleanup_complete:-0}" = 1 ]] || [[ "${airgeddon_cleanup_running:-0}" = 1 ]]; then
+		return 0
+	fi
+	airgeddon_cleanup_running=1
+	printf '%s\n' 'Emergency cleanup: requesting restoration of this session state.' >&2
+	local owned_pid parent_pid
+	#Only signal tracked direct children of this shell; never kill by process name.
+	#Tmux-owned processes may not be descendants and are deliberately not guessed.
+	for owned_pid in "${et_processes[@]}" "${et_process_control_window:-}"; do
+		if [[ "${owned_pid}" =~ ^[1-9][0-9]*$ && "${owned_pid}" != "$$" && "${owned_pid}" -gt 1 ]]; then
+			parent_pid=$(ps -o ppid= -p "${owned_pid}" 2> /dev/null) || continue
+			parent_pid=${parent_pid//[[:space:]]/}
+			if [[ "${parent_pid}" = "$$" ]]; then
+				kill_pid_and_children_recursive "${owned_pid}" || true
+			fi
+		fi
+	done
+	if [[ "${routing_modified:-0}" = 1 ]]; then
+		local routing_backup="${system_tmpdir}${routing_tmp_file}"
+		if [[ -f "${routing_backup}" && -s "${routing_backup}" && ! -L "${routing_backup}" && -O "${routing_backup}" ]]; then
+			clean_routing_rules || printf '%s\n' 'Routing restoration reported a failure; inspect firewall state.' >&2
+		elif [[ "${airgeddon_instance_name:-}" =~ ^ag[0-9]+$ ]]; then
+			#Without a trusted snapshot, never invoke global firewall flushing/restoration.
+			clean_this_instance_iptables_nftables || true
+			control_routing_status end || true
+			printf '%s\n' 'No trusted firewall snapshot: requested instance-only rule cleanup; review firewall state manually.' >&2
+		else
+			printf '%s\n' 'Routing cleanup skipped: no trusted snapshot or valid instance identity.' >&2
+		fi
+	fi
+	if [[ "${ifacemode:-}" = Monitor && -n "${interface:-}" && -n "${airmon:-}" ]]; then
+		if "${airmon}" stop "${interface}" > /dev/null 2>&1; then
+			ifacemode=Managed
+		else
+			printf '%s\n' 'Monitor-mode restoration failed; inspect the adapter.' >&2
+		fi
+	fi
+	if [[ "${spoofed_mac:-0}" = 1 && "${ifacemode:-}" = Managed ]]; then
+		restore_spoofed_macs || printf '%s\n' 'MAC restoration reported a failure.' >&2
+	fi
+	if [[ "${nm_processes_killed:-0}" = 1 ]] && is_last_airgeddon_instance; then
+		eval "${networkmanager_cmd} > /dev/null 2>&1" || printf '%s\n' 'NetworkManager restart failed.' >&2
+	fi
+	#Do not introduce a new recursive deletion of arbitrary or partly initialized paths.
+	if [[ "${tmpdir:-}" =~ ^/tmp/ag[0-9]+/$ && -d "${tmpdir}" && ! -L "${tmpdir%/}" && -O "${tmpdir}" ]]; then
+		clean_tmpfiles exit_script || printf '%s\n' 'Temporary-file cleanup reported a failure.' >&2
+	fi
+	airgeddon_cleanup_complete=1
+	airgeddon_cleanup_running=0
+	return 0
+}
+
+function emergency_term_handler() {
+
+	#Ignore repeated TERM while restoring, rather than recursively entering cleanup.
+	trap '' TERM
+	emergency_exit_cleanup
+	exit 143
+}
+
+function emergency_exit_handler() {
+
+	local original_status=$1
+	trap - EXIT
+	emergency_exit_cleanup
+	return "${original_status}"
 }
 
 #Generate a small time loop printing some dots
@@ -21517,6 +21634,7 @@ function main() {
 	initialize_sounds
 	set_windows_sizes
 	channel_mappings
+	airgeddon_cleanup_ready=1
 	select_interface
 	initialize_menu_options_dependencies
 	remove_warnings
@@ -21533,5 +21651,10 @@ if [[ "${BASH_SOURCE[0]}" = "${0}" ]]; then
 	for f in SIGINT SIGHUP INT SIGTSTP; do
 		trap "capture_traps ${f}" "${f}"
 	done
+	airgeddon_cleanup_ready=0
+	airgeddon_cleanup_complete=0
+	airgeddon_cleanup_running=0
+	trap emergency_term_handler TERM
+	trap 'emergency_exit_handler "$?"' EXIT
 	main "$@"
 fi
