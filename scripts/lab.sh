@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-#Read-only laboratory entry point. Does not capture traffic, crack passwords or install tools.
+#Local laboratory entry point. Analyzes real inputs and saves explicitly requested reports.
+#Does not capture traffic, crack passwords or install tools.
 
 lab_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd) || exit 1
 #shellcheck source=scripts/lab_tools.sh
@@ -12,6 +13,8 @@ source "${lab_root}/lab_cpu.sh"
 source "${lab_root}/dragon_status.sh"
 #shellcheck source=scripts/lab_assessment.sh
 source "${lab_root}/lab_assessment.sh"
+#shellcheck source=scripts/extension_menu.sh
+source "${lab_root}/extension_menu.sh"
 
 lab_usage() {
 	printf '%s\n' \
@@ -28,6 +31,17 @@ lab_usage() {
 		'  train          Fixed offline simulation; no wireless tools or credentials.' \
 		'  preflight CAPTURE WORDLIST  Run read-only quality/statistics checks; never starts recovery.' \
 		'  report [FILE]  Allowlisted diagnostic summary; refuses to overwrite a file.' \
+		'  advanced       Open the real Advanced Extension menus (no root required).' \
+		'  laboratory     Open the styled local laboratory menus.' \
+		'  wpa-analysis FILE | sae-analysis FILE | wps-assessment FILE  Hostapd checks.' \
+		'  enterprise-eap FILE | auth-diagnostics FILE | frame-analysis FILE  Capture analysis.' \
+		'  pmf-analysis FILE | wifi-generation FILE | eapol-analysis FILE  Capture analysis.' \
+		'  rogue-ap FILE [--baseline JSON] | evil-twin FILE | client-threat FILE  Indicators.' \
+		'  handshake-validate FILE | pmkid-forensics FILE | pmkid-analyze FILE  Forensics.' \
+		'  evidence FILE [--record NEWFILE] | evidence-verify FILE RECORD  Evidence management.' \
+		'  wordlist-analyze FILE | password-audit [--stdin]  Local audits.' \
+		'  audit-report MANIFEST [NEWFILE]  Generate an actual private report.' \
+		'  Add --text to analysis commands for terminal-friendly output (JSON is the CLI default).' \
 		'Only assess files and networks you own or are authorized to test.' \
 		'Password recovery remains an explicit choice in the existing offline recovery menu.' \
 		'Longer capture timeouts do not increase cracking speed or guarantee recovery.' \
@@ -79,6 +93,13 @@ lab_main() {
 			else
 				lab_wordlist_statistics "$2"
 			fi
+		;;
+		advanced|laboratory)
+			[[ $# -eq 1 ]] || { lab_usage >&2; return 2; }
+			if [[ $1 = advanced ]]; then advanced_extension_menu; else extension_laboratory_menu; fi
+		;;
+		wpa-analysis|sae-analysis|wps-assessment|enterprise-eap|auth-diagnostics|frame-analysis|pmf-analysis|wifi-generation|eapol-analysis|rogue-ap|evil-twin|client-threat|handshake-validate|pmkid-forensics|pmkid-analyze|wordlist-analyze|password-audit|evidence|evidence-verify|audit-report|wpa2-audit|wpa3-audit)
+			extension_run "$@"
 		;;
 		help|--help|-h) lab_usage ;;
 		*) lab_usage >&2; return 2 ;;

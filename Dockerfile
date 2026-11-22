@@ -94,6 +94,7 @@ RUN \
 	hcxdumptool \
 	beef-xss \
 	tshark \
+	python3 \
 	tcpdump \
 	hostapd-mana
 

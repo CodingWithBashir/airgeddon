@@ -17,7 +17,7 @@ can be sensitive; store them privately and do not commit them to Git.
   to **No**. It does not silently start cracking or choose a dictionary.
 - Main menu **14** opens a laboratory with tool readiness, capture metadata,
   wordlist statistics and a link to the existing offline recovery menus.
-- A read-only command-line laboratory runs without root, X11, a wireless adapter,
+- A local command-line laboratory runs without root, X11, a wireless adapter,
   network access or starting the interactive application.
 - Container builds retain distribution-maintained Hashcat instead of replacing it
   with an unpinned Hashcat 2.0 binary, and include optional inspection utilities.
@@ -32,7 +32,7 @@ Existing interrupt and early-success handling remain in place. Very short captur
 budgets may expire before a useful exchange occurs. Use a realistic budget rather
 than automatically choosing the maximum.
 
-## Read-only utilities
+## Existing diagnostic utilities
 
 Run these from the checkout, or use an absolute path to `airgeddon.sh`:
 
@@ -287,3 +287,26 @@ not rely on this tool to preserve unrelated live production networking.
 
 Tests cover the new functionality with synthetic command output and mocked state
 restoration; no real packet capture, cracking job or firewall change is performed.
+
+## Advanced Extension
+
+Main menu **15** opens the five requested research sections; laboratory **13**
+opens the same extension. Menus use the native airgeddon title/color helpers,
+ASCII separators and aligned option numbering, with a pause after results.
+No terminal font override or graphical dashboard is introduced. Section labels
+are currently English; the existing application selection/pause prompts retain
+its selected language. Redirected extension output omits ANSI color codes.
+
+Open the local menus without starting the main application or requiring root:
+
+```bash
+bash airgeddon.sh --lab advanced
+bash airgeddon.sh --lab laboratory
+```
+
+These are working local analyzers, not fixed demonstration results. Evidence
+records and reports are actually written when requested. Source files remain
+unchanged: modifying a capture would invalidate the evidence being analyzed.
+Nothing starts an unspecified on-air test, service, recovery job or config edit.
+See [ADVANCED_EXTENSION.md](ADVANCED_EXTENSION.md) for every input format, CLI
+command, output status, evidence/report workflow and analysis limitation.

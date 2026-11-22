@@ -8267,7 +8267,8 @@ function main_menu() {
 	print_simple_separator
 	language_strings "${language}" 60
 	language_strings "${language}" 444
-	printf '%s\n' "14. Assessment laboratory / tool diagnostics"
+	printf '%-4s%s\n' "14." "Assessment laboratory / tool diagnostics"
+	printf '%-4s%s\n' "15." "AIRGEDDON ADVANCED EXTENSION"
 	print_hint
 
 	read -rp "> " main_option
@@ -8317,6 +8318,9 @@ function main_menu() {
 		14)
 			laboratory_menu
 		;;
+		15)
+			advanced_research_menu
+		;;
 		*)
 			invalid_menu_option
 		;;
@@ -8325,62 +8329,19 @@ function main_menu() {
 	main_menu
 }
 
-#Read-only lab utilities and explicit handoff to the existing recovery menus.
+#Local laboratory, evidence/report tools and explicit handoff to recovery menus.
 function laboratory_menu() {
 
-	local lab_choice
-	local lab_path
-	local lab_wordlist
-	while true; do
-		printf '\n%s\n' "Assessment laboratory — maintained by ${fork_maintainer}" \
-			"Use only captures and networks you own or are authorized to assess." \
-			"1. Tool readiness report (no installation)" \
-			"2. Capture metadata (read-only)" \
-			"3. Wordlist statistics (does not display candidates)" \
-			"4. Open existing offline password-recovery menu" \
-			"5. CPU/backend profile report (bounded device probe)" \
-			"6. Dragon status display preview (no services started)" \
-			"7. Local service-health snapshot (read-only)" \
-			"8. Wireless hardware capability summary (no scan)" \
-			"9. Capture-quality evidence report (read-only)" \
-			"10. Offline training simulation" \
-			"11. Privacy-filtered diagnostic report (stdout)" \
-			"12. Authorized capture/wordlist preflight (no recovery launched)" \
-			"0. Back" "Windows support — coming soon"
-		IFS= read -rp '> ' lab_choice || return
-		case "${lab_choice}" in
-			0) return ;;
-			1) bash "${scriptfolder}scripts/lab.sh" tools ;;
-			2|3)
-				IFS= read -rp 'File path: ' lab_path || return
-				if [ "${lab_choice}" = 2 ]; then
-					bash "${scriptfolder}scripts/lab.sh" capture "${lab_path}"
-				else
-					bash "${scriptfolder}scripts/lab.sh" wordlist "${lab_path}"
-				fi
-			;;
-			4)
-				printf '%s\n' "A handshake does not guarantee password recovery. Choose your own authorized input and dictionary."
-				personal_decrypt_menu
-			;;
-			5) bash "${scriptfolder}scripts/lab.sh" performance ;;
-			6) bash "${scriptfolder}scripts/lab.sh" dragon ;;
-			7) bash "${scriptfolder}scripts/lab.sh" health ;;
-			8) bash "${scriptfolder}scripts/lab.sh" hardware ;;
-			9)
-				IFS= read -rp 'Authorized capture path: ' lab_path || return
-				bash "${scriptfolder}scripts/lab.sh" quality "${lab_path}"
-			;;
-			10) bash "${scriptfolder}scripts/lab.sh" train ;;
-			11) bash "${scriptfolder}scripts/lab.sh" report ;;
-			12)
-				IFS= read -rp 'Authorized capture path: ' lab_path || return
-				IFS= read -rp 'Your wordlist path: ' lab_wordlist || return
-				bash "${scriptfolder}scripts/lab.sh" preflight "${lab_path}" "${lab_wordlist}"
-			;;
-			*) printf '%s\n' "Invalid selection." ;;
-		esac
-	done
+	#shellcheck source=scripts/extension_menu.sh
+	source "${scriptfolder}scripts/extension_menu.sh"
+	extension_laboratory_menu
+}
+
+function advanced_research_menu() {
+
+	#shellcheck source=scripts/extension_menu.sh
+	source "${scriptfolder}scripts/extension_menu.sh"
+	advanced_extension_menu
 }
 
 #Offer a recovery handoff only after a verified capture was successfully saved.
